@@ -1,0 +1,213 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "definitions": {
+    "symbols": {
+      "description": "The type of symbol to show in the QuickPick (e.g., function, class and/or method, etc.",
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "file",
+            "module",
+            "namespace",
+            "package",
+            "class",
+            "method",
+            "property",
+            "field",
+            "constructor",
+            "enum",
+            "interface",
+            "function",
+            "variable",
+            "constant",
+            "string",
+            "number",
+            "boolean",
+            "array",
+            "object",
+            "key",
+            "null",
+            "enumMember",
+            "struct",
+            "event",
+            "operator",
+            "typeParameter"
+          ],
+          "markdownEnumDescriptions": [
+            "Jump between files.",
+            "Jump between modules.",
+            "Jump between namespaces.",
+            "Jump between packages.",
+            "Jump between classes.",
+            "Jump between methods.",
+            "Jump between properties.",
+            "Jump between fields.",
+            "Jump between constructors.",
+            "Jump between enums.",
+            "Jump between interfaces.",
+            "Jump between functions.",
+            "Jump between variables.",
+            "Jump between constants.",
+            "Jump between strings.",
+            "Jump between numbers.",
+            "Jump between booleans.",
+            "Jump between arrays.",
+            "Jump between objects.",
+            "Jump between keys.",
+            "Jump between nulls.",
+            "Jump between enumMembers.",
+            "Jump between structs.",
+            "Jump between events.",
+            "Jump between operators.",
+            "Jump between typeParameters."
+          ]
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "anyOf": [
+              {
+                "const": "file"
+              },
+              {
+                "const": "module"
+              },
+              {
+                "const": "namespace"
+              },
+              {
+                "const": "package"
+              },
+              {
+                "const": "class"
+              },
+              {
+                "const": "method"
+              },
+              {
+                "const": "property"
+              },
+              {
+                "const": "field"
+              },
+              {
+                "const": "constructor"
+              },
+              {
+                "const": "enum"
+              },
+              {
+                "const": "interface"
+              },
+              {
+                "const": "function"
+              },
+              {
+                "const": "variable"
+              },
+              {
+                "const": "constant"
+              },
+              {
+                "const": "string"
+              },
+              {
+                "const": "number"
+              },
+              {
+                "const": "boolean"
+              },
+              {
+                "const": "array"
+              },
+              {
+                "const": "object"
+              },
+              {
+                "const": "key"
+              },
+              {
+                "const": "null"
+              },
+              {
+                "const": "enumMember"
+              },
+              {
+                "const": "struct"
+              },
+              {
+                "const": "event"
+              },
+              {
+                "const": "operator"
+              },
+              {
+                "const": "typeParameter"
+              }
+            ]
+          },
+          "uniqueItems": true
+        }
+      ]
+    }
+  },
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "command"
+    ],
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "command": {
+              "type": "string",
+              "pattern": "^symbol-jump-and-select"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "command": {
+              "anyOf": [
+                {
+                  "const": "symbol-jump-and-select.showQuickPick"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "command": {
+              "anyOf": [
+                {
+                  "const": "symbol-jump-and-select.showQuickPick"
+                }
+              ]
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "args": {
+              "additionalProperties": false,
+              "type": "object",
+              "properties": {
+                "symbols": {
+                  "description": "Which kind of symbols to show in the QuickPick.",
+                  "$ref": "#/definitions/symbols"
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

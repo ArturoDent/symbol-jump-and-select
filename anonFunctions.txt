@@ -1,0 +1,245 @@
+🧠 Strategy: Detecting Anonymous Functions Across Languages
+🔍 1. Symbol Tree Traversal (LSP-based)
+Most language servers (via LSP) expose symbols using DocumentSymbol or SymbolInformation. However, anonymous functions are often omitted unless:
+
+Assigned to a variable (let f = (x) => x * 2)
+
+Passed as a named argument
+
+Declared as a class member (e.g., arrow method in JS)
+
+To surface them:
+
+✅ Heuristic Enhancements:
+Track VariableDeclaration nodes with function expressions or arrow functions.
+
+Parse inline expressions in CallExpression or ReturnStatement contexts.
+
+Use semantic tokens or AST parsing for deeper inspection.🧠 Strategy: Detecting Anonymous Functions Across Languages
+🔍 1. Symbol Tree Traversal (LSP-based)
+Most language servers (via LSP) expose symbols using DocumentSymbol or SymbolInformation. However, anonymous functions are often omitted unless:
+
+Assigned to a variable (let f = (x) => x * 2)
+
+Passed as a named argument
+
+Declared as a class member (e.g., arrow method in JS)
+
+To surface them:
+
+✅ Heuristic Enhancements:
+Track VariableDeclaration nodes with function expressions or arrow functions.
+
+Parse inline expressions in CallExpression or ReturnStatement contexts.
+
+Use semantic tokens or AST parsing for deeper inspection.
+
+------------------------------------------------------
+
+mport { Project, SyntaxKind } from "ts-morph";
+
+const project = new Project();
+const sourceFile = project.addSourceFileAtPath("yourFile.ts");
+
+const anonymousFunctions = sourceFile.forEachDescendant((node) => {
+  if (
+    node.getKind() === SyntaxKind.ArrowFunction ||
+    node.getKind() === SyntaxKind.FunctionExpression
+  ) {
+    const parent = node.getParent();
+    const assignedName = parent.getKind() === SyntaxKind.VariableDeclaration
+      ? parent.getFirstChildByKind(SyntaxKind.Identifier)?.getText()
+      : undefined;
+
+    return {
+      label: assignedName ? `λ ${assignedName}` : "λ anonymous",
+      detail: node.getText().slice(0, 80) + "...",
+      kind: 12, // SymbolKind.Function
+      range: node.getSourceFile().getLineAndColumnAtPos(node.getStart()),
+    };
+  }
+});
+
+
+Use typeChecker.getTypeOfSymbolAtLocation(symbol, node) to get the type.
+
+Then call type.getCallSignatures() to retrieve the function signatures.
+
+Each signature has a getParameters() method to access parameter symbols.
+
+You can then use typeChecker.getTypeOfSymbolAtLocation(paramSymbol, paramDecl) to get each parameter’s type.
+
+const type = checker.getTypeOfSymbolAtLocation(symbol, node);
+const signatures = type.getCallSignatures();
+for (const sig of signatures) {
+  const params = sig.getParameters();
+  for (const param of params) {
+    const paramType = checker.getTypeOfSymbolAtLocation(param, param.valueDeclaration!);
+    console.log(param.name, checker.typeToString(paramType));
+  }
+}
+
+-----------------------------------------------------
+
+To create a list of TypeScript AST nodes ordered by position, 
+you can recursively walk the tree and collect nodes with their start and end positions. 
+Here's a utility function that does exactly that:
+
+import * as ts from "typescript";
+
+function listNodesByPosition(sourceFile: ts.SourceFile): { node: ts.Node; start: number; end: number }[] {
+  const nodes: { node: ts.Node; start: number; end: number }[] = [];
+
+  function visit(node: ts.Node) {
+    nodes.push({ node, start: node.getStart(sourceFile), end: node.getEnd() });
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+
+  // Optional: sort by start position
+  nodes.sort((a, b) => a.start - b.start);
+
+  return nodes;
+}
+
+const sourceCode = `
+function greet(name: string) {
+  return "Hello, " + name;
+}
+`;
+
+const sourceFile = ts.createSourceFile("example.ts", sourceCode, ts.ScriptTarget.Latest, true);
+const nodeList = listNodesByPosition(sourceFile);
+
+nodeList.forEach(({ node, start, end }) => {
+  console.log(`${ts.SyntaxKind[node.kind]}: [${start}, ${end}]`);
+  
+  -------------------------------------------------------------------------
+  
+  Here’s a TypeScript utility that walks the AST, finds all function-like nodes, 
+  and returns them as QuickPickItems with range, selectionRange, 
+  and extracted parameters — perfect for a VS Code extension UI.
+  
+  import * as ts from "typescript";
+import { QuickPickItem } from "vscode";
+
+interface FunctionQuickPickItem extends QuickPickItem {
+  range: ts.TextRange;
+  selectionRange: ts.TextRange;
+  parameters: string[];
+}
+
+export function getFunctionQuickPickItems(sourceFile: ts.SourceFile): FunctionQuickPickItem[] {
+  const items: FunctionQuickPickItem[] = [];
+
+  function visit(node: ts.Node) {
+    if (
+      ts.isFunctionDeclaration(node) ||
+      ts.isFunctionExpression(node) ||
+      ts.isArrowFunction(node) ||
+      ts.isMethodDeclaration(node)
+    ) {
+      const name = (node as ts.FunctionDeclaration).name?.getText() || "anonymous";
+      const start = node.getStart(sourceFile);
+      const end = node.getEnd();
+      const selStart = node.getStart(sourceFile);
+      const selEnd = node.parameters.length
+        ? node.parameters[node.parameters.length - 1].getEnd()
+        : selStart;
+
+      const parameters = node.parameters.map((param) => param.getText());
+
+      items.push({
+        label: `λ ${name}`,
+        detail: `(${parameters.join(", ")})`,
+        range: { pos: start, end },
+        selectionRange: { pos: selStart, end: selEnd },
+        parameters,
+      });
+    }
+
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return items;
+}
+
+Convert range and selectionRange to vscode.Range using getLineAndCharacterOfPosition.
+
+Example output:
+
+[
+  {
+    label: "λ greet",
+    detail: "(name: string)",
+    range: { pos: 0, end: 42 },
+    selectionRange: { pos: 0, end: 20 },
+    parameters: ["name: string"]
+  },
+  {
+    label: "λ anonymous",
+    detail: "(x: number)",
+    range: { pos: 50, end: 80 },
+    selectionRange: { pos: 50, end: 65 },
+    parameters: ["x: number"]
+  }
+]
+
+-------------------------------------------------------
+
+With 'depth':
+
+interface FunctionQuickPickItem extends QuickPickItem {
+  range: ts.TextRange;
+  selectionRange: ts.TextRange;
+  parameters: string[];
+  depth: number;
+}
+
+export function getFunctionQuickPickItems(sourceFile: ts.SourceFile): FunctionQuickPickItem[] {
+  const items: FunctionQuickPickItem[] = [];
+
+  function visit(node: ts.Node, depth: number) {
+    if (
+      ts.isFunctionDeclaration(node) ||
+      ts.isFunctionExpression(node) ||
+      ts.isArrowFunction(node) ||
+      ts.isMethodDeclaration(node)
+    ) {
+      const name = (node as ts.FunctionDeclaration).name?.getText() || "anonymous";
+      const start = node.getStart(sourceFile);
+      const end = node.getEnd();
+      const selStart = node.getStart(sourceFile);
+      const selEnd = node.parameters.length
+        ? node.parameters[node.parameters.length - 1].getEnd()
+        : selStart;
+
+      const parameters = node.parameters.map((param) => param.getText());
+
+      items.push({
+        label: `λ ${name}`,
+        detail: `(${parameters.join(", ")})`,
+        range: { pos: start, end },
+        selectionRange: { pos: selStart, end: selEnd },
+        parameters,
+        depth,
+      });
+    }
+
+    ts.forEachChild(node, (child) => visit(child, depth + 1));
+  }
+
+  visit(sourceFile, 0);
+  return items;
+}
+
+depth = 0 starts at the root of the AST.
+
+Each recursive call increments depth, so nested functions 
+(e.g. closures, methods inside classes) reflect their structural depth.
+
+Use indentation in label: " ".repeat(depth) + name
+
+----------------------------------------------

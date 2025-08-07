@@ -1,0 +1,28 @@
+// import {DocumentSymbol} from 'vscode';
+// import {SymMap} from './types';
+// import {usesArrowFunctions, arrowFunctionSymbols} from './quickPick';
+// import {compareRanges, compareRangesReverse} from './sort';
+
+
+/**
+ * Not currently used, replaced by traverseSymbols() which tracks 'depth'.
+ * Recursively visit all nested DocumentSymbols.
+ * @param { (a: DocumentSymbol, b: DocumentSymbol) => number } compare
+ * @param { (symbol: DocumentSymbol) => void } callback - Function to execute on each symbol.
+ */
+// export async function visitAllSymbols(
+//   symbols: DocumentSymbol[],
+//   compare: (a: DocumentSymbol, b: DocumentSymbol) => number,
+//   callback: (symbol: DocumentSymbol) => void) {
+
+//   for (const symbol of symbols) {
+
+//     if (compare === compareRanges) callback(symbol);   // put this first to get parent before
+
+//     if (symbol.children.length) {
+//       await exports.visitAllSymbols(symbol.children.sort(compare), compare, callback);
+//     }
+
+//     if (compare === compareRangesReverse) callback(symbol);
+//   }
+// };

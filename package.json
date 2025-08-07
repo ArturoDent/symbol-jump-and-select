@@ -1,0 +1,66 @@
+{
+  "name": "symbol-jump-and-select",
+  "displayName": "Symbol Jump and Select",
+  "description": "Go to filtered symbols (with optional selection).",
+  "version": "0.0.1",
+  "publisher": "ArturoDent",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ArturoDent/symbol-jump-and-select"
+  },
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.102.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "symbol",
+    "jump",
+    "move",
+    "cursor",
+    "select"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "browser": "./out/extension.js",
+  "contributes": {
+    "jsonValidation": [
+      {
+        "fileMatch": "%APP_SETTINGS_HOME%/keybindings.json",
+        "url": "./schemas/keybindings.schema.jsonc"
+      },
+      {
+        "fileMatch": "%APP_SETTINGS_HOME%/profiles/*/keybindings.json",
+        "url": "./schemas/keybindings.schema.jsonc"
+      }
+    ],
+    "commands": [
+      {
+        "command": "symbol-jump-and-select.showQuickPick",
+        "title": "Open a quickpick of filtered symbols.",
+        "category": "Symbol Jump/Select"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.102.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@typescript-eslint/eslint-plugin": "^8.31.1",
+    "@typescript-eslint/parser": "^8.31.1",
+    "eslint": "^9.25.1",
+    "typescript": "^5.8.3",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}
