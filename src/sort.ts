@@ -1,15 +1,15 @@
 import {DocumentSymbol, SymbolKind} from 'vscode';
 import {buildSymMap} from './symbolKindMap';
 
-import {SymMap} from './types';
-import {usesArrowFunctions, arrowFunctionSymbols} from './quickPick';
+import {SymMap, SymbolMap} from './types';
+import {arrowFunctionSymbols} from './quickPick';
+import {usesArrowFunctions} from './extension';
 
 
 
 /**   
  * For .sort(compareRanges): put them into their proper positional order
  * Used in nextStart/End  and childStart/End to go to next FIRST matching symbol
- * 
  * @returns 1 = isAfter, -1 = isBefore
  */
 export function compareRanges(symbol1: DocumentSymbol, symbol2: DocumentSymbol) {
@@ -19,7 +19,6 @@ export function compareRanges(symbol1: DocumentSymbol, symbol2: DocumentSymbol) 
   else if ((symbol1.range.start.isAfter(symbol2.range.start))) return 1;
   else return 0;
 };
-// nodes.sort((a, b) => a.range.start - b.range.start);
 
 
 /**   
@@ -36,7 +35,7 @@ export function compareRangesReverse(symbol1: DocumentSymbol, symbol2: DocumentS
 
 
 /**
- * Compare 2 DocumentSymbols to see if they are the same
+ * Compare 2 DocumentSymbols to see if they are the same name, range and selectionRange
  */
 function symbolsAreEqual(symA: DocumentSymbol, symB: DocumentSymbol): boolean {
   return (
@@ -59,16 +58,17 @@ export function dedupeSymbols(symbols: DocumentSymbol[]): DocumentSymbol[] {
       unique.push(sym);
     }
   }
-
   return unique;
 };
 
 
 /**
  * Replace arrow function variables with SymbolKind.Function.
+ * Filter for keybinding "symbols".
  * Don't include other variables UNLESS there is some child of the right kind.
  */
-export async function makeDepthMapWithFunctionVariables(arrowFunctions: DocumentSymbol[], symbolDepthMap: Map<DocumentSymbol, number>, kbSymbols: (keyof SymMap)[]): Promise<Map<DocumentSymbol, number>> {
+// export async function makeDepthMapWithFunctionVariables(arrowFunctions: DocumentSymbol[], symbolDepthMap: Map<DocumentSymbol, number>, kbSymbols: (keyof SymMap)[]): Promise<Map<DocumentSymbol, number>> {
+export async function makeDepthMapWithFunctionVariables(arrowFunctions: DocumentSymbol[], symbolDepthMap: SymbolMap, kbSymbols: (keyof SymMap)[]): Promise<SymbolMap> {
 
   let mergedMap = new Map();
 
@@ -82,7 +82,7 @@ export async function makeDepthMapWithFunctionVariables(arrowFunctions: Document
 
     let match = false;
 
-    if (symMapHasFunction || symMapHasVariable) {
+    if (symMapHasFunction || symMapHasVariable) {  // TODO: move usesArrowFunctions to here
       if (symbol.kind === SymbolKind.Variable && arrowFunctions.length) {
         let isArrowFunction = usesArrowFunctions ?
           !!arrowFunctions.find((arrowFunction: DocumentSymbol) => {
@@ -113,7 +113,6 @@ export async function makeDepthMapWithFunctionVariables(arrowFunctions: Document
 /**
  * Recursively checks if any DocumentSymbol or its children satisfy the predicate.
  * Returns true on first match (early exit).
- * 
  * @param predicate - isRightKind() is used here.
  */
 function hasMatchingSymbol(symbols: DocumentSymbol[], symMap: SymMap, symMapHasFunction: boolean, predicate: Function): boolean {
@@ -132,9 +131,10 @@ function hasMatchingSymbol(symbols: DocumentSymbol[], symMap: SymMap, symMapHasF
 
 /**
  * Replace arrow function variables with SymbolKind.Function.
- * Include all other variables in the map returned.
+ * Include all other variables in the map returned.  Unfiltered.
  */
-export async function makeDepthMapWithAllVariables(arrowFunctions: DocumentSymbol[], symbolDepthMap: Map<DocumentSymbol, number>): Promise<Map<DocumentSymbol, number>> {
+// export async function makeDepthMapWithAllVariables(arrowFunctions: DocumentSymbol[], symbolDepthMap: Map<DocumentSymbol, number>): Promise<Map<DocumentSymbol, number>> {
+export async function makeDepthMapWithAllVariables(arrowFunctions: DocumentSymbol[], symbolDepthMap: SymbolMap): Promise<SymbolMap> {
 
   let mergedMap = new Map();
 
@@ -157,7 +157,7 @@ export async function makeDepthMapWithAllVariables(arrowFunctions: DocumentSymbo
 };
 
 /**
- * Is the 'symbol' either in the symbols option or is it an arrowFunction (and we want functions)
+ * Is the 'symbol' either in the symbols option or is it an arrowFunction (AND we want functions)
  */
 function isRightKind(symbol: DocumentSymbol, symMap: SymMap, symMapHasFunction: boolean): boolean {
 

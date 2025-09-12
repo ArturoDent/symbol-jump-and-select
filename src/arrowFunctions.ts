@@ -58,7 +58,7 @@ export async function makeSymbolsFromFunctionExpressions(document: vscode.TextDo
         parameters = sig.getParameters();
         for (const param of parameters) {
           const paramType = checker.getTypeOfSymbolAtLocation(param, param.valueDeclaration!);
-          console.log(param.name, checker.typeToString(paramType));
+          // console.log(param.name, checker.typeToString(paramType));
         }
       }
     }

@@ -1,3 +1,3 @@
-Type '{}' is not assignable to type 'SymMap'.
-  Types of property 'constructor' are incompatible.
-    Type 'Function' is not assignable to type 'SymbolKind.Constructor'.
+// [Full code pasted here from your two chunks]
+// Includes: NodePickItem interface, collectSymbolItemsFromSource function,
+// visitWithDepth traversal, extractPropertyChain, getArrowFunctionDetail

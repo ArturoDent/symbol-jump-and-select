@@ -1,15 +1,33 @@
-import {Range, QuickPickItem, SymbolKind} from 'vscode';
+import {Range, DocumentSymbol, SymbolKind, QuickPickItem} from 'vscode';
 
-export interface QuickPickItemRange extends QuickPickItem {
-  range: Range,
-  selectionRange: Range;
-}
 
 export type SymMapKey = | "file" | "module" | "namespace" | "package" | "class" | "method" | "property" | "field" | "constructor" | "enum" | "interface" | "function" | "variable" | "constant" | "string" | "number" | "boolean" | "array" | "object" | "key" | "null" | "enumMember" | "struct" | "event" | "operator" | "typeParameter";
 
 export type SymMap = {
   [key in SymMapKey]: SymbolKind;
 };
+
+export interface QuickPickItemRange extends QuickPickItem {
+  range: Range,
+  selectionRange: Range;
+}
+
+export type SymbolMap = Map<DocumentSymbol, number>;
+
+export interface NodePickItem {
+  name: string;
+  kind: string;
+  depth: number;
+  // exported?: boolean;
+  pos: number;
+  // end: number;
+  range: Range,
+  selectionRange: Range,
+  label: string;
+  detail: string;
+}
+
+export type NodePickItems = NodePickItem[];
 
 // vscode.Symbol.Kind's
 

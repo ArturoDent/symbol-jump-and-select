@@ -22,7 +22,9 @@
     "cursor",
     "select"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "browser": "./out/extension.js",
   "contributes": {
@@ -36,11 +38,25 @@
         "url": "./schemas/keybindings.schema.jsonc"
       }
     ],
+    "configuration": [
+      {
+        "title": "Symbol: Jump-and-Select",
+        "additionalProperties": false,
+        "properties": {
+          "symbol-jump-and-select.useTypescriptCompiler": {
+            "type": "boolean",
+            "scope": "resource",
+            "default": "true",
+            "markdownDescription": "Whether to use the more resource-intensive typescript compiler (`tsc`) to produce more detailed symbol entries."
+          }
+        }
+      }
+    ],
     "commands": [
       {
         "command": "symbol-jump-and-select.showQuickPick",
         "title": "Open a quickpick of filtered symbols.",
-        "category": "Symbol Jump/Select"
+        "category": "Symbol: Jump/Select"
       }
     ]
   },
@@ -53,14 +69,14 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.102.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
+    "@types/vscode": "^1.102.0",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
-    "eslint": "^9.25.1",
-    "typescript": "^5.8.3",
     "@vscode/test-cli": "^0.0.10",
-    "@vscode/test-electron": "^2.5.2"
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.25.1",
+    "typescript": "^5.9.2"
   }
 }
