@@ -15,7 +15,7 @@ Here is an example of a keybinding:
       "function",
     ]
   }
-}
+} 
 ```
 
 <img src="https://github.com/ArturoDent/symbol-jump-and-select/blob/main/images/nodes1.gif?raw=true" width="825" height="600" alt="Show selections in QuickPick"/>
