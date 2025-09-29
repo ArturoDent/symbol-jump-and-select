@@ -18,9 +18,9 @@ Here is an example of a keybinding:
 }
 ```
 
-<img src="https://github.com/ArturoDent/symbol-jump-and-select/blob/main/images/nodes1.gif?raw=true" width="825" height="400" alt="Show selections in QuickPick"/>
+<img src="https://github.com/ArturoDent/symbol-jump-and-select/blob/main/images/nodes1.gif?raw=true" width="825" height="600" alt="Show selections in QuickPick"/>
 
-<img src="https://github.com/ArturoDent/symbol-jump-and-select/blob/main/images/nodes1Filter.gif?raw=true" width="825" height="400" alt="Show filter toggle in QuickPick"/>
+<img src="https://github.com/ArturoDent/symbol-jump-and-select/blob/main/images/nodes1Filter.gif?raw=true" width="825" height="600" alt="Show filter toggle in QuickPick"/>
 
 * Important: You will have to <kbd>Esc</kbd> to hide the QuickPick, clicking outside it will not hide it.
 
