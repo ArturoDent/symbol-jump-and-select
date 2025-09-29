@@ -76,16 +76,16 @@ export function activate(context: ExtensionContext) {
  * Setter for the "global" refreshSymbols
  * Needed if refreshSymbols was exported, to be used in onDidChangeTextDocument().
  */
-export function updateGlobalRefresh(refresh: boolean) {
-	refreshSymbols = refresh;
-}
+// export function updateGlobalRefresh(refresh: boolean) {
+// 	refreshSymbols = refresh;
+// }
 
 /**
  * Setter for the "global" currentUri
  * Needed if refreshSymbols was exported, to be used in onDidChangeTextDocument().
  */
-export function updateGlobalUri(uri: Uri) {
-	lastUri = uri;
-}
+// export function updateGlobalUri(uri: Uri) {
+// 	lastUri = uri;
+// }
 
 export function deactivate() {}
