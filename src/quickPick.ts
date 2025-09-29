@@ -1,86 +1,94 @@
 import {
-  DocumentSymbol, window, TextDocument, Uri, commands, ThemeIcon,
+  DocumentSymbol, window, TextDocument, commands, ThemeIcon,
   QuickPickItemButtonEvent, Position, Range, Selection, TextEditorRevealType
 } from 'vscode';
 
-// const Fuse = require('fuse.js');
-
 import * as arrowFunctions from './arrowFunctions';
-import {makeDepthMapWithFunctionVariables, makeDepthMapWithAllVariables} from './sort';
+import {filterDepthMap, unfilteredDepthMap} from './depthMap';
 import {traverseSymbols} from './qpTraverse';
-import {SymMap, QuickPickItemRange, SymbolMap, NodePickItem, NodePickItems} from './types';
+import {SymMap, QuickPickItemRange, SymbolMap, NodePickItems} from './types';
 import {mapKindToNameAndIconPath} from './symbolKindMap';
 import {collectSymbolItemsFromSource} from './nodeList';
-
-import {refreshSymbols, currentUri, updateGlobalRefresh, updateGlobalUri} from './extension';
+import {filterDocNodes} from './nodeFilter';
 import {isMap} from 'util/types';
 
-// interface QuickPickItemRange extends QuickPickItem {
-//   range: Range,
-//   selectionRange: Range;
-// }
+// import {Fuse, fuseOptions} from './fuzzySearch';
+// import fuzzysort from 'fuzzysort';
+
+// local "globals"
+let kbSymbolsSaved: (keyof SymMap)[];
+let filterState: string = "filtered";
 
 let docSymbols: DocumentSymbol[] = [];
+let arrowFunctionSymbols: DocumentSymbol[] = [];
 
-// let symbolDepthMap: Map<DocumentSymbol, number> = new Map();
 let symbolDepthMap: SymbolMap = new Map();
-// let filteredDepthMap: Map<DocumentSymbol, number> = new Map();
 let filteredDepthMap: SymbolMap = new Map();
-// let allDepthMap: Map<DocumentSymbol, number> = new Map();
 let allDepthMap: SymbolMap = new Map();
 
-export let arrowFunctionSymbols: DocumentSymbol[] = [];
+let allDocNodes: NodePickItems = [];
+let filteredDocNodes: NodePickItems = [];
 
 
-// let docSymbols: DocumentSymbol[] = [];
-// let symbolDepthMap: Map<DocumentSymbol, number> = new Map();
-// let currentUri: Uri;
-// let refreshSymbols: boolean = true;
-// let useTSC: boolean = true;
+// Get the Nodes using tsc, and return filtered nodes
+export async function getNodes(kbSymbols: (keyof SymMap)[], getNewNodes: boolean, document: TextDocument): Promise<NodePickItems | undefined> {
 
+  kbSymbolsSaved = kbSymbols;
 
-// let usesArrowFunctions: boolean = false;
-// let arrowFunctionSymbols: DocumentSymbol[] = [];
-// export {usesArrowFunctions, arrowFunctionSymbols};
+  if (getNewNodes) {
+    allDocNodes = await collectSymbolItemsFromSource(document);
 
-let kbSymbolsSaved: (keyof SymMap)[];
-let filterState: string = "not filtered";
+    symbolDepthMap.clear();
+    filteredDepthMap.clear();
+    allDepthMap.clear();
 
+    filteredDocNodes = [];
+    docSymbols = [];
+  }
 
-export async function getNodes(document: TextDocument): Promise<NodePickItems | undefined> {
-  return collectSymbolItemsFromSource(document);
+  if (allDocNodes) {
+    // if no kbSymbols, don't bother to filter // can that ever happen - defaults to all?
+    filteredDocNodes = await filterDocNodes(kbSymbols, allDocNodes);
+  }
+
+  return filteredDocNodes;
 }
 
 /**
- * 
+ * 1. Get doc symbols from vscode.executeDocumentSymbolProvider
+ * 2. Build an array of symbols for arrow functions (else identified as variables)
+ * 3. Build a depth map of all symbols
+ * 4. Filter the depth map for keybinding "symbols"
  */
-// export async function getSymbols(kbSymbols: (keyof SymMap)[], document: TextDocument, usesArrowFunctions: boolean): Promise<Map<DocumentSymbol, number> | undefined> {
-export async function getSymbols(kbSymbols: (keyof SymMap)[], document: TextDocument, usesArrowFunctions: boolean): Promise<SymbolMap | undefined> {
+export async function getSymbols(kbSymbols: (keyof SymMap)[], getNewSymbols: boolean, usesArrowFunctions: boolean, document: TextDocument,): Promise<SymbolMap | undefined> {
 
   kbSymbolsSaved = kbSymbols;
 
   // current document was  or  current document is not the one for which the symbols were retrieved
-  if (refreshSymbols || currentUri !== document.uri) {
+  if (getNewSymbols) {
     docSymbols = await commands.executeCommand('vscode.executeDocumentSymbolProvider', document.uri);
 
-    updateGlobalRefresh(false);
-    updateGlobalUri(document.uri);
+    symbolDepthMap.clear();
+    filteredDepthMap.clear();
+    allDepthMap.clear();
+
+    allDocNodes = [];
+    filteredDocNodes = [];
 
     if (usesArrowFunctions) {
       arrowFunctionSymbols = await arrowFunctions.makeSymbolsFromFunctionExpressions(document) || [];
     }
     else arrowFunctionSymbols = [];
 
-    if (docSymbols) {
+    if (docSymbols) {          // in if (getNewSymbols)
       symbolDepthMap.clear();
-      symbolDepthMap = traverseSymbols(docSymbols, symbolDepthMap);
+      symbolDepthMap = traverseSymbols(docSymbols, symbolDepthMap, document);
     }
   }
 
-  // this is the filtering step and merging the arrowFunctions
+  // this is the filtering step and merges the arrowFunctions
   if (symbolDepthMap.size) {
-    // return await makeDepthMapWithFunctionVariables(arrowFunctionSymbols, symbolDepthMap, kbSymbolsSaved);
-    filteredDepthMap = await makeDepthMapWithFunctionVariables(arrowFunctionSymbols, symbolDepthMap, kbSymbolsSaved);
+    filteredDepthMap = await filterDepthMap(usesArrowFunctions, arrowFunctionSymbols, symbolDepthMap, kbSymbolsSaved);
     return filteredDepthMap;
   }
 
@@ -91,13 +99,12 @@ export async function getSymbols(kbSymbols: (keyof SymMap)[], document: TextDocu
 /**
  * Show a QuickPick of the document symbols in options 'symbols'
  */
-// export async function render(mergedDepthMap: Map<DocumentSymbol, number>) {
-// export async function render(items: NodePickItem[]) {
-// export async function render(items: NodePickItem[] | Map<DocumentSymbol, number>) {
-export async function render(items: NodePickItems | SymbolMap) {
+export async function render(usesArrowFunctions: boolean, items: NodePickItems | SymbolMap) {
 
   const doc = window.activeTextEditor?.document;
   if (!doc) return;
+
+  filterState = "filtered";
 
   const filterButton = {
     iconPath: new ThemeIcon('filter'),
@@ -119,68 +126,61 @@ export async function render(items: NodePickItems | SymbolMap) {
   if (isMap(items)) {  // for SymbolMap, non-tsc
 
     items.forEach((depth, symbol) => {
-      let label = symbol.name;
-      // if (depth) label = ('  ⮡  ' + symbol.name).padStart(symbol.name?.length + 5 + (depth * 45, ' ');
-      if (depth) label = ('⮩  ' + symbol.name).padStart(symbol.name?.length + 3 + (depth * 3), ' ');
-      // TODO: get └─ from below
+      let label = `${symbol.name}: ${symbol.detail}`;
+      if (depth) label = ('└─  ' + label).padStart(label.length + (depth * 10), ' ');
 
       qpItems.push({
         // do a reverse mapping from symbol.kind -> "class", "function", etc.
-        description: ` (${mapKindToNameAndIconPath.get(symbol.kind)?.name})`, // var => arrow fn
+        // description: ` (${mapKindToNameAndIconPath.get(symbol.kind)?.name})`, // var => arrow fn
 
-        label: label,
+        label: label + ` --- (${mapKindToNameAndIconPath.get(symbol.kind)?.name})`,
         range: symbol.range,
         selectionRange: symbol.selectionRange,
         buttons: [selectButton],
-
-        // iconPath: new vscode.ThemeIcon('symbol-function'),  // this works
-        iconPath: mapKindToNameAndIconPath.get(symbol.kind)?.iconPath ?? new ThemeIcon('')
       });
     });
   }
 
   else if (Array.isArray(items)) {  // for NodePickItems, using tsc
 
-    // const doc = window.activeTextEditor?.document;
-
     items.forEach(item => {
       let label = item.label;
-      // if (depth) label = ('  ⮡  ' + symbol.name).padStart(symbol.name?.length + 5 + (depth * 45, ' ');
-      // if (item.depth > 0) label = ('⮩  ' + label).padStart(item.label!.length + 3 + (item.depth * 3), ' ');
       if (item.depth > 0) label = ('└─  ' + label).padStart(item.label!.length + (item.depth * 10), ' ');
-      // if (depth) label = (' $(chevron-right) ' + symbol.name).padStart(symbol.name?.length + 3 + (depth * 3), ' ');
 
       qpItems.push({
-        // do a reverse mapping from symbol.kind -> "class", "function", etc.
-        // description: ` (${mapKindToNameAndIconPath.get(item.kind)?.name})`, // var => arrow fn
-        // TODO: do the line numbers add anything ??
-        // description: `[ ${item.detail} ]  ::  ${doc.positionAt(item.pos).line + 1}`, // var => arrow fn
-
-        // label: label ,     // coerce to non-null: Non‑null Assertion Operator
-        label: `${label}   ---  [ ${item.detail} ]`,     // coerce to non-null: Non‑null Assertion Operator
+        label: `${label}   ---  (${item.detail})`,     // coerce to non-null: Non‑null Assertion Operator
         range: item.range,
         selectionRange: item.selectionRange,
         buttons: [selectButton],
-
-        // iconPath: new vscode.ThemeIcon('symbol-function'),  // this works
-        // iconPath: mapKindToNameAndIconPath.get(symbol.kind)?.iconPath ?? new ThemeIcon('')  // use this
       });
     });
   }
 
   const qp = window.createQuickPick<QuickPickItemRange>();
+  qp.ignoreFocusOut = true;
   qp.items = qpItems;
   qp.title = 'Select Symbols';
-  // qp.matchOnDescription = true;  // so can filter by '(class)', '(function)', etc. !!
-
-  // TODO: can this be used to control the order of QuickPickItems shown??
-  qp.onDidChangeValue(event => {
-    console.log();
-    // just do a sort by start/range here??
-  });
+  (qp as any).sortByLabel = false;  // stop alphabetical resorting, especially in onDidChangeValue() below
 
   qp.buttons = [filterButton];
   // qp.buttons = [filterButton, refreshButton];
+
+
+  // this is for "filtering/searching" in the QuickPick
+  // fuzzysort performs fuzzy searching
+  // qp.onDidChangeValue(newValue => {
+
+  //   if (!newValue) {       // for when QuickPick input is empty
+  //     qp.items = qpItems;
+  //     return;
+  //   }
+
+  //   // const results = fuzzysort.go(newValue, qpItems, {key: "label"});
+  //   const results = fuzzysort.go(newValue, qpItems, {key: "label"});
+  //   qp.items = results.map((result: any) => result.obj)
+  //     .sort(sortQPItems);
+  // });
+
 
   qp.onDidTriggerItemButton((event: QuickPickItemButtonEvent<QuickPickItemRange>) => {
 
@@ -190,7 +190,6 @@ export async function render(items: NodePickItems | SymbolMap) {
 
     const target = event.item;
 
-    // let extendedRange = event.item.selectionRange;
     let extendedRange;
     const lastLineLength = document.lineAt(target.range.end).text.length;
 
@@ -204,6 +203,7 @@ export async function render(items: NodePickItems | SymbolMap) {
 
     qp.hide();
   });
+
 
   // select an item
   qp.onDidChangeSelection((selectedItems: readonly QuickPickItemRange[]) => {
@@ -219,29 +219,48 @@ export async function render(items: NodePickItems | SymbolMap) {
   });
 
 
+  // filterButton
   // make the filtered version first and save it, then, if called, make the All version and save it
   qp.onDidTriggerButton(async button => {
+
+    const document = window.activeTextEditor?.document;
+    if (!document) return;
+
     if (button === filterButton) {
-      // keep track of filter state
-
       if (symbolDepthMap.size) {
-
-        if (filterState === "not filtered") {
-          // or check for nodeTree
+        if (filterState === "filtered") {
           if (!allDepthMap.size)
-            allDepthMap = await makeDepthMapWithAllVariables(arrowFunctionSymbols, symbolDepthMap);
+            allDepthMap = await unfilteredDepthMap(usesArrowFunctions, arrowFunctionSymbols, symbolDepthMap);
           if (allDepthMap.size) {
-            await module.exports.render(allDepthMap);
+            await module.exports.render(usesArrowFunctions, allDepthMap);
+            filterState = "not filtered";
+          }
+        }
+        else {
+          if (!filteredDepthMap.size)
+            filteredDepthMap = await filterDepthMap(usesArrowFunctions, arrowFunctionSymbols, symbolDepthMap, kbSymbolsSaved);
+          if (filteredDepthMap.size) {
+            await module.exports.render(usesArrowFunctions, filteredDepthMap);
             filterState = "filtered";
           }
         }
-
-        else {
-          if (!filteredDepthMap.size)
-            filteredDepthMap = await makeDepthMapWithFunctionVariables(arrowFunctionSymbols, symbolDepthMap, kbSymbolsSaved);
-          if (filteredDepthMap.size) {
-            await module.exports.render(filteredDepthMap);
+      }
+      // might allDocNodes still be set from previous document?
+      else if (allDocNodes.length) {
+        if (filterState === "filtered") {
+          if (!allDocNodes.length)
+            allDocNodes = await collectSymbolItemsFromSource(document);
+          if (allDocNodes.length) {
+            await module.exports.render(usesArrowFunctions, allDocNodes);
             filterState = "not filtered";
+          }
+        }
+        else {
+          if (!filteredDocNodes.length)
+            filteredDocNodes = await filterDocNodes(kbSymbolsSaved, allDocNodes);
+          if (filteredDocNodes.length) {
+            await module.exports.render(usesArrowFunctions, filteredDocNodes);
+            filterState = "filtered";
           }
         }
       }
@@ -256,9 +275,7 @@ export async function render(items: NodePickItems | SymbolMap) {
   // 	qp.hide();
   // });
 
-  qp.onDidHide(() => {
-    qp.dispose();
-  });
+  qp.onDidHide(() => qp.dispose());
 
   qp.show();
 };
@@ -266,90 +283,90 @@ export async function render(items: NodePickItems | SymbolMap) {
 
 /**
  * Select in QP only
- * 
+ *
  */
-function onSelect() {
+// function onSelect() {
 
-  // GOTO arguments[0].range, if arguments.length
-  // console.log();
-}
+//   // GOTO arguments[0].range, if arguments.length
+//   // console.log();
+// }
 
 
 /**
- * 
- * @param symbolKind 
+ *
+ * @param symbolKind
  */
-function map(symbolKind: number): ThemeIcon {
+// function map(symbolKind: number): ThemeIcon {
 
-  const mapping = [
-    new ThemeIcon('symbol-file'),
-    new ThemeIcon('symbol-module'),
-    new ThemeIcon('symbol-namespace'),
-    new ThemeIcon('symbol-package'),
-    new ThemeIcon('symbol-class'),
-    new ThemeIcon('symbol-method'),
-    new ThemeIcon('symbol-property'),
-    new ThemeIcon('symbol-field'),
-    new ThemeIcon('symbol-constructor'),
-    new ThemeIcon('symbol-enum'),
-    new ThemeIcon('symbol-interface'),
-    new ThemeIcon('symbol-function'),
-    new ThemeIcon('symbol-variable'),
-    new ThemeIcon('symbol-constant'),
-    new ThemeIcon('symbol-string'),
-    new ThemeIcon('symbol-number'),
-    new ThemeIcon('symbol-boolean'),
-    new ThemeIcon('symbol-array'),
-    new ThemeIcon('symbol-object'),
-    new ThemeIcon('symbol-key'),
-    new ThemeIcon('symbol-null'),
-    new ThemeIcon('symbol-enum-member'),
-    new ThemeIcon('symbol-struct'),
-    new ThemeIcon('symbol-event'),
-    new ThemeIcon('symbol-operator'),
-    new ThemeIcon('symbol-type-parameter')
-  ];
+//   const mapping = [
+//     new ThemeIcon('symbol-file'),
+//     new ThemeIcon('symbol-module'),
+//     new ThemeIcon('symbol-namespace'),
+//     new ThemeIcon('symbol-package'),
+//     new ThemeIcon('symbol-class'),
+//     new ThemeIcon('symbol-method'),
+//     new ThemeIcon('symbol-property'),
+//     new ThemeIcon('symbol-field'),
+//     new ThemeIcon('symbol-constructor'),
+//     new ThemeIcon('symbol-enum'),
+//     new ThemeIcon('symbol-interface'),
+//     new ThemeIcon('symbol-function'),
+//     new ThemeIcon('symbol-variable'),
+//     new ThemeIcon('symbol-constant'),
+//     new ThemeIcon('symbol-string'),
+//     new ThemeIcon('symbol-number'),
+//     new ThemeIcon('symbol-boolean'),
+//     new ThemeIcon('symbol-array'),
+//     new ThemeIcon('symbol-object'),
+//     new ThemeIcon('symbol-key'),
+//     new ThemeIcon('symbol-null'),
+//     new ThemeIcon('symbol-enum-member'),
+//     new ThemeIcon('symbol-struct'),
+//     new ThemeIcon('symbol-event'),
+//     new ThemeIcon('symbol-operator'),
+//     new ThemeIcon('symbol-type-parameter')
+//   ];
 
-  return mapping[symbolKind];
-}
+//   return mapping[symbolKind];
+// }
 
 /**
- * 
- * @param symbolKind 
+ *
+ * @param symbolKind
  */
-function mapToKind(symbolKind: number): string {
+// function mapToKind(symbolKind: number): string {
 
-  const mapping = [
-    'file',
-    'module',
-    'namespace',
-    'package',
-    'class',
-    'method',
-    'property',
-    'field',
-    'constructor',
-    'enum',
-    'interface',
-    'function',
-    'variable',
-    'constant',
-    'string',
-    'number',
-    'boolean',
-    'array',
-    'object',
-    'key',
-    'null',
-    'enumMember',
-    'struct',
-    'event',
-    'operator',
-    'typeParameter'
-  ];
+//   const mapping = [
+//     'file',
+//     'module',
+//     'namespace',
+//     'package',
+//     'class',
+//     'method',
+//     'property',
+//     'field',
+//     'constructor',
+//     'enum',
+//     'interface',
+//     'function',
+//     'variable',
+//     'constant',
+//     'string',
+//     'number',
+//     'boolean',
+//     'array',
+//     'object',
+//     'key',
+//     'null',
+//     'enumMember',
+//     'struct',
+//     'event',
+//     'operator',
+//     'typeParameter'
+//   ];
 
-  return mapping[symbolKind];
-}
+//   return mapping[symbolKind];
+// }
 
 
 // /**
@@ -389,5 +406,3 @@ function mapToKind(symbolKind: number): string {
 //   if (mapping.has(symbolKind)) return mapping.get(symbolKind);
 //   return undefined;
 // }
-
-// export {usesArrowFunctions, arrowFunctionSymbols, kbSymbolsHasFunction, kbSymbolsHasVariable};

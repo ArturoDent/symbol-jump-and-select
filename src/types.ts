@@ -14,7 +14,7 @@ export interface QuickPickItemRange extends QuickPickItem {
 
 export type SymbolMap = Map<DocumentSymbol, number>;
 
-export interface NodePickItem {
+interface NodePickItem {
   name: string;
   kind: string;
   depth: number;

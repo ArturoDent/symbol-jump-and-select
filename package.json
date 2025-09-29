@@ -2,7 +2,8 @@
   "name": "symbol-jump-and-select",
   "displayName": "Symbol Jump and Select",
   "description": "Go to filtered symbols (with optional selection).",
-  "version": "0.0.1",
+  "preview": true,
+  "version": "0.1.0",
   "publisher": "ArturoDent",
   "repository": {
     "type": "git",
@@ -77,6 +78,7 @@
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.5.2",
     "eslint": "^9.25.1",
+    "fuzzysort": "^3.1.0",
     "typescript": "^5.9.2"
   }
 }

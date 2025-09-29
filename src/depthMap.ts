@@ -1,11 +1,19 @@
 import {DocumentSymbol, SymbolKind} from 'vscode';
 import {buildSymMap} from './symbolKindMap';
-
-import {SymMap, SymbolMap} from './types';
-import {arrowFunctionSymbols} from './quickPick';
-import {usesArrowFunctions} from './extension';
+import {SymMap, SymbolMap, QuickPickItemRange} from './types';
 
 
+/**   
+ * For fuzzSearching on QuickPickItems: put them into their proper positional order
+ * @returns 1 = isAfter, -1 = isBefore
+ */
+export function sortQPItems(qp1: QuickPickItemRange, qp2: QuickPickItemRange) {
+  // this.name = 'compareRanges';  // becuase of the function compareRanges(symbol1, symbol2) above !!
+  // see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function/name#function_expression
+  if ((qp1.range.start.isBefore(qp2.range.start))) return -1;
+  else if ((qp1.range.start.isAfter(qp2.range.start))) return 1;
+  else return 0;
+};
 
 /**   
  * For .sort(compareRanges): put them into their proper positional order
@@ -35,31 +43,33 @@ export function compareRangesReverse(symbol1: DocumentSymbol, symbol2: DocumentS
 
 
 /**
+ * Not currently used.
+ * Only used in dedupeSymbols. 
  * Compare 2 DocumentSymbols to see if they are the same name, range and selectionRange
  */
-function symbolsAreEqual(symA: DocumentSymbol, symB: DocumentSymbol): boolean {
-  return (
-    symA.name === symB.name &&
-    symA.range.isEqual(symB.range) &&
-    symA.selectionRange.isEqual(symB.selectionRange)
-  );
-};
+// function symbolsAreEqual(symA: DocumentSymbol, symB: DocumentSymbol): boolean {
+//   return (
+//     symA.name === symB.name &&
+//     symA.range.isEqual(symB.range) &&
+//     symA.selectionRange.isEqual(symB.selectionRange)
+//   );
+// };
 
 
 /**
  * Not currently used.
  */
-export function dedupeSymbols(symbols: DocumentSymbol[]): DocumentSymbol[] {
+// export function dedupeSymbols(symbols: DocumentSymbol[]): DocumentSymbol[] {
 
-  const unique: DocumentSymbol[] = [];
+//   const unique: DocumentSymbol[] = [];
 
-  for (const sym of symbols) {
-    if (!unique.some(existing => symbolsAreEqual(existing, sym))) {
-      unique.push(sym);
-    }
-  }
-  return unique;
-};
+//   for (const sym of symbols) {
+//     if (!unique.some(existing => symbolsAreEqual(existing, sym))) {
+//       unique.push(sym);
+//     }
+//   }
+//   return unique;
+// };
 
 
 /**
@@ -67,13 +77,12 @@ export function dedupeSymbols(symbols: DocumentSymbol[]): DocumentSymbol[] {
  * Filter for keybinding "symbols".
  * Don't include other variables UNLESS there is some child of the right kind.
  */
-// export async function makeDepthMapWithFunctionVariables(arrowFunctions: DocumentSymbol[], symbolDepthMap: Map<DocumentSymbol, number>, kbSymbols: (keyof SymMap)[]): Promise<Map<DocumentSymbol, number>> {
-export async function makeDepthMapWithFunctionVariables(arrowFunctions: DocumentSymbol[], symbolDepthMap: SymbolMap, kbSymbols: (keyof SymMap)[]): Promise<SymbolMap> {
+export async function filterDepthMap(usesArrowFunctions: boolean, arrowFunctionSymbols: DocumentSymbol[], symbolDepthMap: SymbolMap, kbSymbols: (keyof SymMap)[]): Promise<SymbolMap> {
 
   let mergedMap = new Map();
 
   const symMap = buildSymMap(kbSymbols);
-  if (!symMap) return mergedMap;  // empty mergeMap
+  if (!symMap) return mergedMap;  // return an empty mergeMap
 
   let symMapHasVariable = Object.values(symMap).includes(SymbolKind.Variable);
   let symMapHasFunction = Object.values(symMap).includes(SymbolKind.Function);
@@ -82,12 +91,11 @@ export async function makeDepthMapWithFunctionVariables(arrowFunctions: Document
 
     let match = false;
 
-    if (symMapHasFunction || symMapHasVariable) {  // TODO: move usesArrowFunctions to here
-      if (symbol.kind === SymbolKind.Variable && arrowFunctions.length) {
-        let isArrowFunction = usesArrowFunctions ?
-          !!arrowFunctions.find((arrowFunction: DocumentSymbol) => {
-            return arrowFunction.range.isEqual(symbol.range);
-          }) : false;
+    if (usesArrowFunctions && (symMapHasFunction || symMapHasVariable)) {
+      if (symbol.kind === SymbolKind.Variable && arrowFunctionSymbols.length) {
+        let isArrowFunction = !!arrowFunctionSymbols.find((arrowFunction: DocumentSymbol) => {
+          return arrowFunction.range.isEqual(symbol.range);
+        });
         if (isArrowFunction) {
           symbol.kind = SymbolKind.Function;
           mergedMap.set(symbol, depth);
@@ -103,7 +111,7 @@ export async function makeDepthMapWithFunctionVariables(arrowFunctions: Document
 
     // else if (has children and at least one of those is the right kind)
     if (!match && symbol.children.length) {
-      const found = hasMatchingSymbol([symbol], symMap, symMapHasFunction, isRightKind);  // predicate is isRightKind
+      const found = hasMatchingSymbol(usesArrowFunctions, arrowFunctionSymbols, [symbol], symMap, symMapHasFunction, isRightKind);  // predicate is isRightKind
       if (found) mergedMap.set(symbol, depth);
     }
   }
@@ -115,13 +123,13 @@ export async function makeDepthMapWithFunctionVariables(arrowFunctions: Document
  * Returns true on first match (early exit).
  * @param predicate - isRightKind() is used here.
  */
-function hasMatchingSymbol(symbols: DocumentSymbol[], symMap: SymMap, symMapHasFunction: boolean, predicate: Function): boolean {
+function hasMatchingSymbol(usesArrowFunctions: boolean, arrowFunctions: DocumentSymbol[], symbols: DocumentSymbol[], symMap: SymMap, symMapHasFunction: boolean, predicate: Function): boolean {
   for (const symbol of symbols) {
-    if (predicate(symbol, symMap, symMapHasFunction)) {
+    if (predicate(usesArrowFunctions, symbol, symMap, symMapHasFunction)) {
       return true;
     }
     if (Array.isArray(symbol.children) && symbol.children.length > 0) {
-      if (hasMatchingSymbol(symbol.children, symMap, symMapHasFunction, predicate)) {
+      if (hasMatchingSymbol(usesArrowFunctions, arrowFunctions, symbol.children, symMap, symMapHasFunction, predicate)) {
         return true;
       }
     }
@@ -133,18 +141,16 @@ function hasMatchingSymbol(symbols: DocumentSymbol[], symMap: SymMap, symMapHasF
  * Replace arrow function variables with SymbolKind.Function.
  * Include all other variables in the map returned.  Unfiltered.
  */
-// export async function makeDepthMapWithAllVariables(arrowFunctions: DocumentSymbol[], symbolDepthMap: Map<DocumentSymbol, number>): Promise<Map<DocumentSymbol, number>> {
-export async function makeDepthMapWithAllVariables(arrowFunctions: DocumentSymbol[], symbolDepthMap: SymbolMap): Promise<SymbolMap> {
+export async function unfilteredDepthMap(usesArrowFunctions: boolean, arrowFunctionSymbols: DocumentSymbol[], symbolDepthMap: SymbolMap): Promise<SymbolMap> {
 
   let mergedMap = new Map();
 
   for await (const [symbol, depth] of symbolDepthMap) {
 
-    if (symbol.kind === SymbolKind.Variable && arrowFunctions) {
-      let isArrowFunction = usesArrowFunctions ?
-        !!arrowFunctions.find(arrowFunction => {
-          return arrowFunction.range.isEqual(symbol.range);
-        }) : false;
+    if (symbol.kind === SymbolKind.Variable && arrowFunctionSymbols && usesArrowFunctions) {
+      let isArrowFunction = !!arrowFunctionSymbols.find(arrowFunction => {
+        return arrowFunction.range.isEqual(symbol.range);
+      });
       if (isArrowFunction) {
         symbol.kind = SymbolKind.Function;
         mergedMap.set(symbol, depth);
@@ -159,15 +165,14 @@ export async function makeDepthMapWithAllVariables(arrowFunctions: DocumentSymbo
 /**
  * Is the 'symbol' either in the symbols option or is it an arrowFunction (AND we want functions)
  */
-function isRightKind(symbol: DocumentSymbol, symMap: SymMap, symMapHasFunction: boolean): boolean {
+function isRightKind(usesArrowFunctions: boolean, arrowFunctions: DocumentSymbol[], symbol: DocumentSymbol, symMap: SymMap, symMapHasFunction: boolean): boolean {
 
   if (Object.values(symMap).includes(symbol.kind)) return true;
 
-  else if (symbol.kind === SymbolKind.Variable && symMapHasFunction && arrowFunctionSymbols?.length) {
-    let isArrowFunction = usesArrowFunctions ?
-      !!arrowFunctionSymbols.find(arrowFunction => {
-        return arrowFunction.range.isEqual(symbol.range);
-      }) : false;
+  else if (symbol.kind === SymbolKind.Variable && symMapHasFunction && arrowFunctions?.length && usesArrowFunctions) {
+    let isArrowFunction = !!arrowFunctions.find(arrowFunction => {
+      return arrowFunction.range.isEqual(symbol.range);
+    });
     if (isArrowFunction) return true;
   }
 

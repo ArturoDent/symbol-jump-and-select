@@ -57,6 +57,7 @@ export function buildSymMap(kbSymbols: SymMapKey[] | undefined): SymMap {
 };
 
 /**
+ * Not currently used.
  * Used to make individual QuickPickItem's.
  * @example: 11 => {name: function, iconPath: new ThemeIcon('symbol-function')}
  */
@@ -88,7 +89,6 @@ export const mapKindToNameAndIconPath = new Map<SymbolKind, {name: string; iconP
   [SymbolKind.Event, {name: 'event', iconPath: new ThemeIcon('symbol-event')}],
   [SymbolKind.Operator, {name: 'operator', iconPath: new ThemeIcon('symbol-operator')}],
   [SymbolKind.TypeParameter, {name: 'typeParameter', iconPath: new ThemeIcon('symbol-type-parameter')}]
-
 ]);
 
 // mapping.set(SymbolKind.File, {name: 'file', iconPath: new ThemeIcon('symbol-file')});
