@@ -1,20 +1,51 @@
-import {ExtensionContext, commands, workspace, window, Uri} from 'vscode';
-import {getSettings} from './configs';
-import {SymMap, SymbolMap, NodePickItems} from './types';
-
-let lastUri: Uri | undefined = window.activeTextEditor?.document.uri;
-let refreshSymbols: boolean = true;
-
-// this must be after the export globals above
+import {ExtensionContext, commands, workspace, window, Position, Selection, TextEditorRevealType, TreeView} from 'vscode';
+import {SymbolsProvider} from './tree';
 import {getSymbols, getNodes, render} from './quickPick';
+// import * as _Globals from './globals';   // "works" as _Globals._Globals.init()
+import * as Globals from './globals';
+import type {SymMap, SymbolMap, NodePickItems, SymbolNode} from './types';
 
 
-export function activate(context: ExtensionContext) {
 
-	const showQuickPick = commands.registerCommand('symbol-jump-and-select.showQuickPick', async (args) => {
+export async function activate(context: ExtensionContext) {
+
+	const _Globals = Globals.default;
+	_Globals.init();
+
+	let symbolView: TreeView<SymbolNode>;
+	let symbolProvider: SymbolsProvider;
+
+	if (_Globals.makeTreeView) {
+		symbolProvider = new SymbolsProvider();
+		// symbolView = window.createTreeView('symbolsTree', {treeDataProvider: symbolProvider, showCollapseAll: true});
+		symbolView = window.createTreeView('symbolsTree', {treeDataProvider: symbolProvider, showCollapseAll: false});
+		await commands.executeCommand('setContext', 'symbolsTree.locked', SymbolsProvider.locked);
+
+		symbolView.onDidChangeVisibility(e => {
+			commands.executeCommand(
+				'setContext',
+				'SymbolsTree.visible',
+				e.visible
+			);
+		});
+
+		// initial population
+		await symbolProvider.refresh('');
+		context.subscriptions.push(symbolView);
+	}
+
+	// symbolView.onDidChangeVisibility(e => {
+	// 	commands.executeCommand(
+	// 		'setContext',
+	// 		'SymbolsTree.visible',
+	// 		e.visible
+	// 	);
+	// });
+
+	const showQuickPick = commands.registerCommand('symbolsTree.showQuickPick', async (args) => {
 
 		const document = window.activeTextEditor?.document;
-		if (!document) return;
+		if (!document) return;  // message
 
 		let symbols: NodePickItems | SymbolMap | undefined;
 
@@ -27,65 +58,129 @@ export function activate(context: ExtensionContext) {
 
 		kbSymbols = args?.symbols || undefined;
 
-		const useTSC = await getSettings();
-		let usesArrowFunctions: boolean;
+		let isJSTS: boolean;
 
 		if (document.languageId.match(/javascript|typescript|javascriptreact|typescriptreact/))
-			usesArrowFunctions = true;
-		else usesArrowFunctions = false;
+			isJSTS = true;
+		else isJSTS = false;
 
 		// make a getNew/clearOld symbols/nodes variable and send it to getNodes/Symbols
 		let getNewSymbols = false, getNewNodes = false;
 
-		if (refreshSymbols || lastUri !== document.uri) {
-			lastUri = document.uri;
-			refreshSymbols = true;
+		if (_Globals.refreshSymbols || _Globals.lastUri !== document.uri) {
+			_Globals.lastUri = document.uri;
+			// _Globals.refreshSymbols = true;
 			getNewSymbols = true;
 			getNewNodes = true;
 		}
 
 		// if "javascript" and useTSC setting = true
-		if (usesArrowFunctions && useTSC) symbols = await getNodes(kbSymbols, getNewNodes, document); // NodePickItem[] | undefined = NodePickItems
-		else symbols = await getSymbols(kbSymbols, getNewSymbols, usesArrowFunctions, document); // Map<DocumentSymbol, number> | undefined = SymbolMap
+		if (isJSTS && _Globals.useTypescriptCompiler) symbols = await getNodes(kbSymbols, getNewNodes, document); // NodePickItem[] | undefined = NodePickItems
+		else symbols = await getSymbols(kbSymbols, getNewSymbols, isJSTS, document); // Map<DocumentSymbol, number> | undefined = SymbolMap
 
-		if (symbols) await render(usesArrowFunctions, symbols);
+		if (symbols) await render(isJSTS, symbols);
 	});
 	context.subscriptions.push(showQuickPick);
+
+	const filterTree = commands.registerCommand('symbolsTree.filterSymbolTree', async (args) => {
+
+		// {
+		// 	"key": "alt+f",
+		// 		"command": "symbolsTree.filterSymbolTree",
+		// 			"args": [
+		// 				"class"
+		// 			],
+		// 				"when": "SymbolsTree.visible";
+		// }
+
+		symbolProvider.refresh(args || undefined);
+	});
+	context.subscriptions.push(filterTree);
+
+	// TODO: explain these in README
+	context.subscriptions.push(
+
+		commands.registerCommand('symbolsTree.refreshTree', () => symbolProvider.refresh('')),
+
+		commands.registerCommand('symbolsTree.lockTree', async () => {
+			SymbolsProvider.locked = !SymbolsProvider.locked;
+			await commands.executeCommand('setContext', 'symbolsTree.locked', SymbolsProvider.locked);
+		}),
+
+		commands.registerCommand('symbolsTree.unlockTree', async () => {
+			SymbolsProvider.locked = !SymbolsProvider.locked;
+			await commands.executeCommand('setContext', 'symbolsTree.locked', SymbolsProvider.locked);
+			symbolProvider.refresh('');
+		}),
+
+		commands.registerCommand('symbolsTree.filterTree', async () => {
+
+			// to make a keybinding that focuses and opens a find input
+			// undefined is not allowed but works
+			// await symbolView.reveal(undefined, {select: false, focus: true});
+			// await commands.executeCommand('list.find');  // must be awaited to get focus in the find input
+
+			// open the QuickInput and create a filtered TreeItem[]
+			const query = await window.showInputBox();
+			if (query) {
+				await symbolProvider.refresh(query);
+			}
+
+			// {
+			// 	"key": "ctrl+alt+f",
+			// 		"command": "list.find",
+			// 			"when": "SymbolsTree.visible";
+			// }
+		}),
+
+		commands.registerCommand('symbolsTree.collapseTree', async (node: SymbolNode) => {
+			await commands.executeCommand('workbench.actions.treeView.symbolsTree.collapseAll');
+		}),
+
+		commands.registerCommand('symbolsTree.revealSymbol', async (node: SymbolNode) => {
+			const doc = await workspace.openTextDocument(node.uri);
+			const editor = await window.showTextDocument(doc);
+			editor.revealRange(node.range, TextEditorRevealType.InCenter);
+			editor.selection = new Selection(node.selectionRange.start, node.selectionRange.start);
+
+			// if need the activeItem, see proposed: https://github.com/EhabY/vscode/blob/d23158246aaa474996f2237f735461ad47e41403/src/vscode-dts/vscode.proposed.treeViewActiveItem.d.ts#L10-L29
+			// treeView.onDidChangeActiveItem()
+			// waiting on https://github.com/microsoft/vscode/issues/185563
+			// hidden in the Command Palette until these are resolved
+		}),
+
+		commands.registerCommand('symbolsTree.selectSymbol', async (node: SymbolNode) => {
+			const doc = await workspace.openTextDocument(node.uri);
+			const editor = await window.showTextDocument(doc);
+
+			let extendedRange;
+			// const lastLineLength = doc.lineAt(node.range.end).text.length;
+			const lastLineLength = doc.lineAt(node.range.end).text.length;
+
+			if (node.name.startsWith('return')) extendedRange = node.selectionRange;
+			// extendedRange = node.selectionRange.with({
+			// 	end: new Position(node.range.end.line, lastLineLength)
+			// });
+			else
+				extendedRange = node.range.with({
+					start: new Position(node.range.start.line, 0),
+					end: new Position(node.range.end.line, lastLineLength)
+				});
+
+			editor.selection = new Selection(extendedRange.start, extendedRange.end);
+			editor.revealRange(extendedRange, TextEditorRevealType.InCenter);
+		}),
+	);
 
 	// if active document has changed or current document was edited
 	context.subscriptions.push(workspace.onDidChangeTextDocument(async (event) => {
 		// check not keybindings/settings.json
-		if (event.contentChanges.length) refreshSymbols = true;
+		if (event.contentChanges.length) _Globals.refreshSymbols = true;
+
+		if (window.activeTextEditor?.document.languageId.match(/javascript|typescript|javascriptreact|typescriptreact/))
+			_Globals.isJSTS = true;
+		else _Globals.isJSTS = false;
 	}));
-
-	// context.subscriptions.push(workspace.onDidChangeConfiguration(async (event) => {
-	// 	if (event.affectsConfiguration("symbol-jump-and-select")) useTSC = await getSettings() as boolean;
-	// }));
 }
-
-
-/**
- * Setter for the "global" refreshSymbols
- * Needed if refreshSymbols was exported, to be used in onDidChangeTextDocument().
- */
-// export function updateGlobalUseTSC(useTSCsetting: boolean) {
-// 	useTSC = useTSCsetting;
-// }
-
-/**
- * Setter for the "global" refreshSymbols
- * Needed if refreshSymbols was exported, to be used in onDidChangeTextDocument().
- */
-// export function updateGlobalRefresh(refresh: boolean) {
-// 	refreshSymbols = refresh;
-// }
-
-/**
- * Setter for the "global" currentUri
- * Needed if refreshSymbols was exported, to be used in onDidChangeTextDocument().
- */
-// export function updateGlobalUri(uri: Uri) {
-// 	lastUri = uri;
-// }
 
 export function deactivate() {}

@@ -1,4 +1,4 @@
-import {Range, DocumentSymbol, SymbolKind, QuickPickItem} from 'vscode';
+import {Uri, Range, DocumentSymbol, SymbolKind, QuickPickItem, TreeItem} from 'vscode';
 
 
 export type SymMapKey = | "file" | "module" | "namespace" | "package" | "class" | "method" | "property" | "field" | "constructor" | "enum" | "interface" | "function" | "variable" | "constant" | "string" | "number" | "boolean" | "array" | "object" | "key" | "null" | "enumMember" | "struct" | "event" | "operator" | "typeParameter";
@@ -7,27 +7,47 @@ export type SymMap = {
   [key in SymMapKey]: SymbolKind;
 };
 
-export interface QuickPickItemRange extends QuickPickItem {
+export interface SymbolPickItem extends QuickPickItem {
   range: Range,
   selectionRange: Range;
 }
 
 export type SymbolMap = Map<DocumentSymbol, number>;
 
-interface NodePickItem {
+export interface NodePickItem {
   name: string;
   kind: string;
   depth: number;
-  // exported?: boolean;
   pos: number;
   // end: number;
   range: Range,
   selectionRange: Range,
   label: string;
   detail: string;
+  parent?: any | false;
 }
 
 export type NodePickItems = NodePickItem[];
+
+export interface NodeTreeItem extends TreeItem {
+  node: NodePickItem;
+  children: NodeTreeItem[];
+}
+
+export interface SymbolNode {
+  name: string;
+  detail?: string;
+  kind: SymbolKind;
+  range: Range;
+  selectionRange: Range;
+  children?: SymbolNode[];
+  uri: Uri;
+};
+
+export interface SymbolNodeWithParent extends SymbolNode {
+  parent: any;
+};
+
 
 // vscode.Symbol.Kind's
 

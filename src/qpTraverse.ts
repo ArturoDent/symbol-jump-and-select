@@ -1,6 +1,6 @@
 import {DocumentSymbol, SymbolKind, TextDocument} from 'vscode';
 import {compareRanges} from './depthMap';
-import {SymbolMap} from './types';
+import type {SymbolMap} from './types';
 
 
 /**

@@ -1,4 +1,4 @@
-import {SymMap, NodePickItems} from './types';
+import type {SymMap, NodePickItems} from './types';
 import {buildSymMap} from './symbolKindMap';
 
 
@@ -13,13 +13,14 @@ export async function filterDocNodes(kbSymbols: (keyof SymMap)[], docNodes: Node
 
   for await (const symbol of docNodes) {
 
-    let match = false;
+    // let match = false;
 
     if (Object.keys(symMap).includes(symbol.kind)) {
       filteredDocNodes.push(symbol);
-      match = true;
+      // match = true;
     }
 
+    // TODO:
     // else if (has children and at least one of those is the right kind)
     // if (!match && symbol.children.length) {
     //   const found = hasMatchingSymbol([symbol], symMap, symMapHasFunction, isRightKind);  // predicate is isRightKind

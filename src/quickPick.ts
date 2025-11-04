@@ -3,10 +3,12 @@ import {
   QuickPickItemButtonEvent, Position, Range, Selection, TextEditorRevealType
 } from 'vscode';
 
+// import {Settings} from './settings';
+
 import * as arrowFunctions from './arrowFunctions';
 import {filterDepthMap, unfilteredDepthMap} from './depthMap';
 import {traverseSymbols} from './qpTraverse';
-import {SymMap, QuickPickItemRange, SymbolMap, NodePickItems} from './types';
+import type {SymMap, SymbolPickItem, SymbolMap, NodePickItems} from './types';
 import {mapKindToNameAndIconPath} from './symbolKindMap';
 import {collectSymbolItemsFromSource} from './nodeList';
 import {filterDocNodes} from './nodeFilter';
@@ -60,7 +62,7 @@ export async function getNodes(kbSymbols: (keyof SymMap)[], getNewNodes: boolean
  * 3. Build a depth map of all symbols
  * 4. Filter the depth map for keybinding "symbols"
  */
-export async function getSymbols(kbSymbols: (keyof SymMap)[], getNewSymbols: boolean, usesArrowFunctions: boolean, document: TextDocument,): Promise<SymbolMap | undefined> {
+export async function getSymbols(kbSymbols: (keyof SymMap)[], getNewSymbols: boolean, isJSTS: boolean, document: TextDocument,): Promise<SymbolMap | undefined> {
 
   kbSymbolsSaved = kbSymbols;
 
@@ -75,7 +77,7 @@ export async function getSymbols(kbSymbols: (keyof SymMap)[], getNewSymbols: boo
     allDocNodes = [];
     filteredDocNodes = [];
 
-    if (usesArrowFunctions) {
+    if (isJSTS) {
       arrowFunctionSymbols = await arrowFunctions.makeSymbolsFromFunctionExpressions(document) || [];
     }
     else arrowFunctionSymbols = [];
@@ -88,7 +90,7 @@ export async function getSymbols(kbSymbols: (keyof SymMap)[], getNewSymbols: boo
 
   // this is the filtering step and merges the arrowFunctions
   if (symbolDepthMap.size) {
-    filteredDepthMap = await filterDepthMap(usesArrowFunctions, arrowFunctionSymbols, symbolDepthMap, kbSymbolsSaved);
+    filteredDepthMap = await filterDepthMap(isJSTS, arrowFunctionSymbols, symbolDepthMap, kbSymbolsSaved);
     return filteredDepthMap;
   }
 
@@ -99,7 +101,7 @@ export async function getSymbols(kbSymbols: (keyof SymMap)[], getNewSymbols: boo
 /**
  * Show a QuickPick of the document symbols in options 'symbols'
  */
-export async function render(usesArrowFunctions: boolean, items: NodePickItems | SymbolMap) {
+export async function render(isJSTS: boolean, items: NodePickItems | SymbolMap) {
 
   const doc = window.activeTextEditor?.document;
   if (!doc) return;
@@ -109,7 +111,7 @@ export async function render(usesArrowFunctions: boolean, items: NodePickItems |
   const filterButton = {
     iconPath: new ThemeIcon('filter'),
     tooltip: 'Toggle Filter'
-  };
+  } as const;
 
   // const refreshButton = {
   //   iconPath: new ThemeIcon('refresh'),
@@ -119,9 +121,9 @@ export async function render(usesArrowFunctions: boolean, items: NodePickItems |
   const selectButton = {
     iconPath: new ThemeIcon('selection'),
     tooltip: 'Select Symbol'
-  };
+  } as const;
 
-  let qpItems: QuickPickItemRange[] = [];
+  let qpItems: SymbolPickItem[] = [];
 
   if (isMap(items)) {  // for SymbolMap, non-tsc
 
@@ -148,7 +150,7 @@ export async function render(usesArrowFunctions: boolean, items: NodePickItems |
       if (item.depth > 0) label = ('└─  ' + label).padStart(item.label!.length + (item.depth * 10), ' ');
 
       qpItems.push({
-        label: `${label}   ---  (${item.detail})`,     // coerce to non-null: Non‑null Assertion Operator
+        label: `${label}   ---  (${item.detail})`,
         range: item.range,
         selectionRange: item.selectionRange,
         buttons: [selectButton],
@@ -156,7 +158,7 @@ export async function render(usesArrowFunctions: boolean, items: NodePickItems |
     });
   }
 
-  const qp = window.createQuickPick<QuickPickItemRange>();
+  const qp = window.createQuickPick<SymbolPickItem>();
   qp.ignoreFocusOut = true;
   qp.items = qpItems;
   qp.title = 'Select Symbols';
@@ -182,7 +184,7 @@ export async function render(usesArrowFunctions: boolean, items: NodePickItems |
   // });
 
 
-  qp.onDidTriggerItemButton((event: QuickPickItemButtonEvent<QuickPickItemRange>) => {
+  qp.onDidTriggerItemButton((event: QuickPickItemButtonEvent<SymbolPickItem>) => {
 
     const editor = window.activeTextEditor;
     const document = editor?.document;
@@ -206,7 +208,7 @@ export async function render(usesArrowFunctions: boolean, items: NodePickItems |
 
 
   // select an item
-  qp.onDidChangeSelection((selectedItems: readonly QuickPickItemRange[]) => {
+  qp.onDidChangeSelection((selectedItems: readonly SymbolPickItem[]) => {
     const editor = window.activeTextEditor;
     const document = editor?.document;
     if (!document) return;
@@ -230,17 +232,17 @@ export async function render(usesArrowFunctions: boolean, items: NodePickItems |
       if (symbolDepthMap.size) {
         if (filterState === "filtered") {
           if (!allDepthMap.size)
-            allDepthMap = await unfilteredDepthMap(usesArrowFunctions, arrowFunctionSymbols, symbolDepthMap);
+            allDepthMap = await unfilteredDepthMap(isJSTS, arrowFunctionSymbols, symbolDepthMap);
           if (allDepthMap.size) {
-            await module.exports.render(usesArrowFunctions, allDepthMap);
+            await module.exports.render(isJSTS, allDepthMap);
             filterState = "not filtered";
           }
         }
         else {
           if (!filteredDepthMap.size)
-            filteredDepthMap = await filterDepthMap(usesArrowFunctions, arrowFunctionSymbols, symbolDepthMap, kbSymbolsSaved);
+            filteredDepthMap = await filterDepthMap(isJSTS, arrowFunctionSymbols, symbolDepthMap, kbSymbolsSaved);
           if (filteredDepthMap.size) {
-            await module.exports.render(usesArrowFunctions, filteredDepthMap);
+            await module.exports.render(isJSTS, filteredDepthMap);
             filterState = "filtered";
           }
         }
@@ -251,7 +253,7 @@ export async function render(usesArrowFunctions: boolean, items: NodePickItems |
           if (!allDocNodes.length)
             allDocNodes = await collectSymbolItemsFromSource(document);
           if (allDocNodes.length) {
-            await module.exports.render(usesArrowFunctions, allDocNodes);
+            await module.exports.render(isJSTS, allDocNodes);
             filterState = "not filtered";
           }
         }
@@ -259,7 +261,7 @@ export async function render(usesArrowFunctions: boolean, items: NodePickItems |
           if (!filteredDocNodes.length)
             filteredDocNodes = await filterDocNodes(kbSymbolsSaved, allDocNodes);
           if (filteredDocNodes.length) {
-            await module.exports.render(usesArrowFunctions, filteredDocNodes);
+            await module.exports.render(isJSTS, filteredDocNodes);
             filterState = "filtered";
           }
         }

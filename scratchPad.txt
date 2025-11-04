@@ -1,3 +1,9 @@
 // [Full code pasted here from your two chunks]
 // Includes: NodePickItem interface, collectSymbolItemsFromSource function,
 // visitWithDepth traversal, extractPropertyChain, getArrowFunctionDetail
+
+        "title": "Lock Tree",
+        "icon": {
+          "light": "resources/light/lock.svg",
+          "dark": "resources/dark/lock.svg"
+        },

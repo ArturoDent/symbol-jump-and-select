@@ -1,5 +1,5 @@
 import {SymbolKind, ThemeIcon} from 'vscode';
-import {SymMap, SymMapKey} from './types';
+import type {SymMap, SymMapKey} from './types';
 
 /**
  * A 'map' from a kbSymbol option to its SymbolKind (a number)
@@ -31,7 +31,7 @@ const symbolKindMap = {
   "event": SymbolKind.Event,
   "operator": SymbolKind.Operator,
   "typeParameter": SymbolKind.TypeParameter,
-};
+} as const;
 
 
 /**
@@ -89,7 +89,7 @@ export const mapKindToNameAndIconPath = new Map<SymbolKind, {name: string; iconP
   [SymbolKind.Event, {name: 'event', iconPath: new ThemeIcon('symbol-event')}],
   [SymbolKind.Operator, {name: 'operator', iconPath: new ThemeIcon('symbol-operator')}],
   [SymbolKind.TypeParameter, {name: 'typeParameter', iconPath: new ThemeIcon('symbol-type-parameter')}]
-]);
+] as const);
 
 // mapping.set(SymbolKind.File, {name: 'file', iconPath: new ThemeIcon('symbol-file')});
 // mapping.set(SymbolKind.Module, {name: 'module', iconPath: new ThemeIcon('symbol-module')});

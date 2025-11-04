@@ -120,6 +120,11 @@ So this extension will determine if those 'variables' are in fact 'functions' an
 6. Conside making `ignoreFocusOut` an optional setting.
 7. `centerOnCursor` on opening? Search by symbol/node range.
 8. Load new symbols/nodes on editor change, if QuickPick panel open?  Setting.
+9. Keep an eye on [TreeView.activeItem](https://github.com/microsoft/vscode/blob/main/src/vscode-dts/vscode.proposed.treeViewActiveItem.d.ts).
+10. Follow focus of editor cursor? Center enclosing symbol?
+11. Keep an eye on tsgo, [ts native preview](https://marketplace.visualstudio.com/items?itemName=TypeScriptTeam.native-preview&ssr=false#overview).
+12. Keep an eye on [TreeItem markdown labels](https://github.com/microsoft/vscode/blob/main/src/vscode-dts/vscode.proposed.treeItemMarkdownLabel.d.ts).
+13. Make tree items open/collapsed by setting?
 
 ## Release Notes
 

@@ -1,6 +1,6 @@
 {
-  "name": "symbol-jump-and-select",
-  "displayName": "Symbol Jump and Select",
+  "name": "symbols-tree",
+  "displayName": "Symbols Tree",
   "description": "Go to filtered symbols (with optional selection).",
   "preview": true,
   "version": "0.1.1",
@@ -41,23 +41,187 @@
     ],
     "configuration": [
       {
-        "title": "Symbol: Jump-and-Select",
+        "title": "Symbols Tree",
         "additionalProperties": false,
         "properties": {
-          "symbol-jump-and-select.useTypescriptCompiler": {
+          "symbolsTree.useTypescriptCompiler": {
             "type": "boolean",
             "scope": "resource",
-            "default": "true",
+            "default": true,
             "markdownDescription": "Whether to use the more resource-intensive typescript compiler (`tsc`) to produce more detailed symbol entries."
+          }
+        }
+      },
+      {
+        "title": "Symbols Tree",
+        "additionalProperties": false,
+        "properties": {
+          "symbolsTree.makeTreeView": {
+            "type": "boolean",
+            "scope": "resource",
+            "default": true,
+            "markdownDescription": "Make a Tree View that can be shown in the SideBar, etc."
+          }
+        }
+      },
+      {
+        "title": "Symbols Tree",
+        "additionalProperties": false,
+        "properties": {
+          "symbolsTree.collapseTreeViewItems": {
+            "type": "string",
+            "enum": [
+              "expandOnOpen",
+              "collapseOnOpen"
+            ],
+            "scope": "resource",
+            "default": "collapseOnOpen",
+            "markdownEnumDescriptions": [
+              "Expand all items on when opening or refreshing the tree view.",
+              "Collapse all items on when opening or refreshing the tree view."
+            ]
           }
         }
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "symbolsTree",
+          "title": "Symbol Tree",
+          "icon": "$(list-tree)"
+        }
+      ]
+    },
+    "views": {
+      "symbolsTree": [
+        {
+          "id": "symbolsTree",
+          "name": "Symbols",
+          "contextualTitle": "Symbols",
+          "icon": "$(list-tree)"
+        }
+      ]
+    },
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "symbolsTree.filterSymbolTree",
+          "when": "false"
+        },
+        {
+          "command": "symbolsTree.revealSymbol",
+          "when": "false"
+        },
+        {
+          "command": "symbolsTree.refreshTree",
+          "when": "false"
+        },
+        {
+          "command": "symbolsTree.selectSymbol",
+          "when": "false"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "symbolsTree.lockTree",
+          "when": "symbolsTree.visible && symbolsTree.locked === false",
+          "group": "navigation@1"
+        },
+        {
+          "command": "symbolsTree.unlockTree",
+          "icon": "$(unlock)",
+          "when": "symbolsTree.visible && symbolsTree.locked === true",
+          "group": "navigation@1"
+        },
+        {
+          "command": "symbolsTree.filterTree",
+          "icon": "$(filter)",
+          "when": "view == symbolsTree",
+          "group": "navigation@2"
+        },
+        {
+          "command": "symbolsTree.refreshTree",
+          "icon": "$(refresh)",
+          "when": "view == symbolsTree",
+          "group": "navigation@3"
+        },
+        {
+          "command": "symbolsTree.collapseTree",
+          "icon": "$(collapse-all)",
+          "when": "view == symbolsTree",
+          "group": "navigation@4"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "symbolsTree.selectSymbol",
+          "icon": "$(selection)",
+          "when": "viewItem == symbolNode",
+          "group": "inline@1"
+        }
+      ]
+    },
     "commands": [
       {
-        "command": "symbol-jump-and-select.showQuickPick",
-        "title": "Open a quickpick of filtered symbols.",
-        "category": "Symbol: Jump/Select"
+        "command": "symbolsTree.showQuickPick",
+        "title": "Open a QuickInput of filtered symbols.",
+        "category": "Symbols Tree"
+      },
+      {
+        "command": "symbolsTree.filterSymbolTree",
+        "title": "Apply a filter to the symbol tree.",
+        "category": "Symbols Tree",
+        "shortTitle": "Filter",
+        "enablement": "symbolsTree.visible"
+      },
+      {
+        "command": "symbolsTree.lockTree",
+        "title": "Lock Tree",
+        "category": "Symbols Tree",
+        "enablement": "symbolsTree.visible",
+        "icon": "$(lock)"
+      },
+      {
+        "command": "symbolsTree.unlockTree",
+        "title": "Unlock Tree",
+        "category": "Symbols Tree",
+        "enablement": "symbolsTree.visible",
+        "icon": "$(unlock)"
+      },
+      {
+        "command": "symbolsTree.refreshTree",
+        "category": "Symbols Tree",
+        "title": "Refresh",
+        "enablement": "symbolsTree.visible",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "symbolsTree.filterTree",
+        "title": "Open a QuickInput to filter/find within the symbol tree.",
+        "category": "Symbols Tree",
+        "enablement": "symbolsTree.visible",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "symbolsTree.collapseTree",
+        "title": "Collapse the symbol tree.",
+        "category": "Symbols Tree",
+        "enablement": "symbolsTree.visible",
+        "icon": "$(collapse-all)"
+      },
+      {
+        "command": "symbolsTree.revealSymbol",
+        "title": "Go to this symbol.",
+        "category": "Symbols Tree",
+        "enablement": "symbolsTree.visible"
+      },
+      {
+        "command": "symbolsTree.selectSymbol",
+        "title": "Select this symbol.",
+        "category": "Symbols Tree",
+        "enablement": "symbolsTree.visible",
+        "icon": "$(selection)"
       }
     ]
   },
