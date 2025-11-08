@@ -88,7 +88,7 @@
       "activitybar": [
         {
           "id": "symbolsTree",
-          "title": "Symbol Tree",
+          "title": "Symbols Tree",
           "icon": "$(list-tree)"
         }
       ]
@@ -97,8 +97,8 @@
       "symbolsTree": [
         {
           "id": "symbolsTree",
-          "name": "Symbols",
-          "contextualTitle": "Symbols",
+          "name": "Symbols Tree",
+          "contextualTitle": "Symbols Tree",
           "icon": "$(list-tree)"
         }
       ]
@@ -235,7 +235,7 @@
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
-    "@types/node": "20.x",
+    "@types/node": "^22.19.0",
     "@types/vscode": "^1.102.0",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",

@@ -1,13 +1,41 @@
-# Symbol Jump and Select
+# Symbol Jump and Select (or Symbols Tree)
 
-Show a QuickPick with all or just filtered symbols.  Click on an item to go to that symbol or to go AND select that entire symbol and its children.
+Show a QuickPick with all or just filtered symbols.  Items can be filtered by keybinding or searching within the QuickPick.
+
+Click on an item to go to that symbol or to go AND select that entire symbol and its children.
+
+You can also show a TreeView in the SideBar or Secondary SideBar that allows jumping and selecting and filtering.
+
+## Symbols Tree View
+
+Initally the Symbols Tree  icon ( <img src="./icons/list-tree.png" width="16" height="16" alt="Symbols Tree icon"/> ) will appear in the Activity Bar and clicking on it will open the view in the SideBar, but it can be dragged or moved to the Secondary SideBar.
+
+Here is what the Symbols Tree view looks like:
+
+<img src="https://github.com/ArturoDent/symbol-jump-and-select/blob/main/images/symbolsTreeView.png?raw=true" width="300" height="200" alt="The top portion of a Symbols Tree view in the Side Bar"/>
+
+Notice the icons across the top:  
+
+<img src="./icons/lock.png" width="16" height="16" alt="Symbols Tree view lock icon"/> <img src="./icons/filter.png" width="16" height="16" alt="Symbols Tree filter icon"/> <img src="./icons/refresh.png" width="16" height="16" alt="Symbols Tree refresh icon"/> <img src="./icons/collapse-all.png" width="16" height="16" alt="Symbols Tree collapseAll icon"/>
+
+##### <img src="./icons/lock.png" width="16" height="16" alt="Symbols Tree view lock icon"/> : `lock` - prevent the tree view from updating to the new file when you switch editors.  Press again to unlock <img src="./icons/unlock.png" width="16" height="16" alt="Symbols Tree view unlock icon"/>.
+
+##### <img src="./icons/filter.png" width="16" height="16" alt="Symbols Tree filter icon"/> : `filter` -  open a QuickInput for you to enter search/filter terms to narrow the tree view.
+
+##### <img src="./icons/refresh.png" width="16" height="16" alt="Symbols Tree refresh icon"/> : `refresh` - return the tree view to the full unfiltered view.
+
+##### <img src="./icons/collapse-all.png" width="16" height="16" alt="Symbols Tree collapseAll icon"/> : `collapse all` nodes in the tree view.
+
+* Note: refresh <img src="./icons/refresh.png" width="16" height="16" alt="Symbols Tree refresh icon"/> will return to the unfiltered state ***AND*** expand all nodes (if the setting `Symbols Tree: Collapse Tree View Items` is set to `expandOnOpen`) ***or*** collapse all nodes (if the setting `Symbols Tree: Collapse Tree View Items` is set to `collapseOnOpen`).
+
+----------
 
 Here is an example of a keybinding:
 
 ```jsonc
 {
   "key": "alt+o",       // whatever keybinding you want
-  "command": "symbol-jump-and-select.showQuickPick",
+  "command": "symbolsTree.showQuickPick",
   "args": {
     "symbols": [
       "class",
@@ -46,7 +74,7 @@ If you omit the `symbols` option in your keybinding (or it is just an empty arra
 
 This extension contributes the following command:
 
-* `symbol-jump-and-select.showQuickPick`
+* `symbolsTree.showQuickPick`
 
 ```plaintext
 // in the Command Palette:
@@ -67,23 +95,53 @@ If you have already filtered by symbols in the keybinding, you can only search i
 
 ## Extension Settings
 
-This extension contributes one setting:
+This extension contributes these settings:
 
-* `symbol-jump-and-select.useTypescriptCompiler`
+* `symbolsTree.useTypescriptCompiler`
 
 ```plaintext
 // in your Settings UI search for 'Typescript Compiler':
-Symbol Jump/Select: Use Typescript Compiler.
+Symbols Tree: Use Typescript Compiler.
 
 "Whether to use the more resource-intensive typescript compiler (`tsc`) to produce more detailed symbol entries."
 ```
 
 In your settings.json, look for this:  
-    "symbol-jump-and-select.useTypescriptCompiler": false
+    "symbolsTree.useTypescriptCompiler": false
 
 The default is **true**.  
 
 The typescript compiler is only available for javascript, javascriptreact, typescript and typescriptreact files.  It will be more resource-intensive than the built-in symbol provider so you can turn it off.  But with it enabled, you get more detailed and informative entries.
+
+* `symbolsTree.makeTreeView`
+
+```plaintext
+// in your Settings UI search for 'tree view' or 'symbols tree':
+Symbols Tree: Make Tree View.
+
+"Make a Tree View that can be shown in the SideBar, etc."
+```
+
+In your settings.json, look for this:  
+    "symbolsTree.makeTreeView": false
+
+The default is **true**.  
+
+* `symbolsTree.collapseTreeViewItems`
+
+```plaintext
+// in your Settings UI search for 'tree view' or 'symbols tree':
+Symbols Tree: Collapse Tree View Items.
+
+"Expand/Collapse all items on when opening or refreshing the tree view."
+```
+
+In your settings.json, look for this:  
+    "symbol-jump-and-select.makeTreeView": "expandOnOpen"  // or "collapseOnOpen"
+
+The default is **collapseOnOpen**.  
+
+Hitting the refresh button on the TreeView will expand or collapse all tree items according to this setting.  So you could hit the `CollapseAll` button and then `Refresh` to re-expand the tree (if `expandOnOpen`).
 
 ## Benefits of Using the Typescript Compiler (tsc)
 
@@ -112,19 +170,18 @@ So this extension will determine if those 'variables' are in fact 'functions' an
 
 ## TODO
 
-1. Add try/catch statements to the tsc version.
-2. Make this into an optional view for one of the side bars (debounce on typing).
-3. Add keybinding `symbols` that are specific to the tsc version, like `case`, `return`, etc. These can be filtered in the Quick Panel manually. But could enable by keybinding too.
-4. Work on more parents nodes shown on filtering: e.g., show function declaration on switch/case or show the switch on filter by `case`, show class on `constructor`.
-5. Update [keybindings schema](schemas/keybindings.schema.jsonc) for tsc nodes (part of 3 above).
-6. Conside making `ignoreFocusOut` an optional setting.
-7. `centerOnCursor` on opening? Search by symbol/node range.
-8. Load new symbols/nodes on editor change, if QuickPick panel open?  Setting.
-9. Keep an eye on [TreeView.activeItem](https://github.com/microsoft/vscode/blob/main/src/vscode-dts/vscode.proposed.treeViewActiveItem.d.ts).
-10. Follow focus of editor cursor? Center enclosing symbol?
-11. Keep an eye on tsgo, [ts native preview](https://marketplace.visualstudio.com/items?itemName=TypeScriptTeam.native-preview&ssr=false#overview).
-12. Keep an eye on [TreeItem markdown labels](https://github.com/microsoft/vscode/blob/main/src/vscode-dts/vscode.proposed.treeItemMarkdownLabel.d.ts).
-13. Make tree items open/collapsed by setting?
+1. Add try/catch statements to the tsc version?
+2. Add keybinding `symbols` that are specific to the tsc version, like `case`, `return`, etc. These can be filtered in the Quick Panel manually. But could enable by keybinding too.
+3. Work on more parents nodes shown on filtering: e.g., show function declaration on switch/case or show the switch on filter by `case`, show class on `constructor`.
+4. Update [keybindings schema](schemas/keybindings.schema.jsonc) for tsc nodes (part of 3 above).
+5. Conside making `ignoreFocusOut` an optional setting.
+6. `centerOnCursor` on opening? Search by symbol/node range.
+7. Keep an eye on [TreeView.activeItem](https://github.com/microsoft/vscode/blob/main/src/vscode-dts/vscode.proposed.treeViewActiveItem.d.ts).
+8. Follow focus of editor cursor? Center enclosing symbol?
+9. Keep an eye on tsgo, [ts native preview](https://marketplace.visualstudio.com/items?itemName=TypeScriptTeam.native-preview&ssr=false#overview).
+10. Keep an eye on [TreeItem markdown labels](https://github.com/microsoft/vscode/blob/main/src/vscode-dts/vscode.proposed.treeItemMarkdownLabel.d.ts).
+11. Use a colored unlock icon?
+
 
 ## Release Notes
 

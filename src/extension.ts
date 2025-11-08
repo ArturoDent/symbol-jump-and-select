@@ -1,8 +1,7 @@
 import {ExtensionContext, commands, workspace, window, Position, Selection, TextEditorRevealType, TreeView} from 'vscode';
 import {SymbolsProvider} from './tree';
 import {getSymbols, getNodes, render} from './quickPick';
-// import * as _Globals from './globals';   // "works" as _Globals._Globals.init()
-import * as Globals from './globals';
+import * as Globals from './myGlobals';
 import type {SymMap, SymbolMap, NodePickItems, SymbolNode} from './types';
 
 
@@ -19,6 +18,8 @@ export async function activate(context: ExtensionContext) {
 		symbolProvider = new SymbolsProvider();
 		// symbolView = window.createTreeView('symbolsTree', {treeDataProvider: symbolProvider, showCollapseAll: true});
 		symbolView = window.createTreeView('symbolsTree', {treeDataProvider: symbolProvider, showCollapseAll: false});
+		symbolProvider.setView(symbolView);
+
 		await commands.executeCommand('setContext', 'symbolsTree.locked', SymbolsProvider.locked);
 
 		symbolView.onDidChangeVisibility(e => {
@@ -100,7 +101,10 @@ export async function activate(context: ExtensionContext) {
 	// TODO: explain these in README
 	context.subscriptions.push(
 
-		commands.registerCommand('symbolsTree.refreshTree', () => symbolProvider.refresh('')),
+		commands.registerCommand('symbolsTree.refreshTree', () => {
+			symbolProvider.expandAll();
+			symbolProvider.refresh('');
+		}),
 
 		commands.registerCommand('symbolsTree.lockTree', async () => {
 			SymbolsProvider.locked = !SymbolsProvider.locked;
@@ -143,7 +147,7 @@ export async function activate(context: ExtensionContext) {
 			editor.revealRange(node.range, TextEditorRevealType.InCenter);
 			editor.selection = new Selection(node.selectionRange.start, node.selectionRange.start);
 
-			// if need the activeItem, see proposed: https://github.com/EhabY/vscode/blob/d23158246aaa474996f2237f735461ad47e41403/src/vscode-dts/vscode.proposed.treeViewActiveItem.d.ts#L10-L29
+			// if need the activeItem(s), see proposed: https://github.com/EhabY/vscode/blob/d23158246aaa474996f2237f735461ad47e41403/src/vscode-dts/vscode.proposed.treeViewActiveItem.d.ts#L10-L29
 			// treeView.onDidChangeActiveItem()
 			// waiting on https://github.com/microsoft/vscode/issues/185563
 			// hidden in the Command Palette until these are resolved
@@ -154,7 +158,6 @@ export async function activate(context: ExtensionContext) {
 			const editor = await window.showTextDocument(doc);
 
 			let extendedRange;
-			// const lastLineLength = doc.lineAt(node.range.end).text.length;
 			const lastLineLength = doc.lineAt(node.range.end).text.length;
 
 			if (node.name.startsWith('return')) extendedRange = node.selectionRange;

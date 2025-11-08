@@ -1,7 +1,7 @@
 import ts from "typescript";
 import {TextDocument, Range, TreeItem, TreeItemCollapsibleState} from "vscode";
-import type {NodePickItem, NodePickItems, NodeTreeItem, SymMap, SymbolNode, SymbolNodeWithParent} from './types';
-import * as Globals from './globals';
+import type {NodePickItem, NodePickItems, NodeTreeItem, SymMap, SymbolNode} from './types';
+import * as Globals from './myGlobals';
 
 
 export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<NodePickItems> {
@@ -82,7 +82,8 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
         range: new Range(doc.positionAt(node.getStart(sourceFile)), doc.positionAt(node.getEnd())),
         selectionRange: new Range(doc.positionAt(node.name.getStart(sourceFile)), doc.positionAt(node.name.getEnd())),
         label: `${name} ( ${asString} )`,
-        detail: "function declaration"
+        detail: "function declaration",
+        parent: depth ? node.parent : undefined
       });
 
       // how is this different from node.forEachChild(child => recursiveFunction)
@@ -106,7 +107,8 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
         range: new Range(doc.positionAt(node.getStart(sourceFile)), doc.positionAt(node.getEnd())),
         selectionRange: new Range(doc.positionAt(node.getStart(sourceFile)), doc.positionAt(node.getStart(sourceFile))),
         label: `( ${asString} ) =>  `,
-        detail: "anonymous function"
+        detail: "anonymous function",
+        parent: depth ? node.parent : undefined
       });
 
       if (ts.isBlock(node.body)) {
@@ -129,7 +131,8 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
         range: new Range(doc.positionAt(node.getStart(sourceFile)), doc.positionAt(node.getEnd())),
         selectionRange: new Range(doc.positionAt(node.expression.getStart(sourceFile)), doc.positionAt(node.expression.getStart(sourceFile))),
         label: `switch (${text})`,
-        detail: "switch"
+        detail: "switch",
+        parent: depth ? node.parent : undefined
       });
       if (node.caseBlock.clauses) {
         node.caseBlock.clauses.forEach(clause =>
@@ -158,7 +161,8 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
         range: new Range(doc.positionAt(node.getStart(sourceFile)), doc.positionAt(node.getEnd())),
         selectionRange: new Range(doc.positionAt(node.expression.getStart(sourceFile)), doc.positionAt(node.expression.getStart(sourceFile))),
         label: `case: ${text}`,
-        detail: "switch case"
+        detail: "switch case",
+        parent: depth ? node.parent : undefined
       });
       node.statements.forEach(stmt =>
         visitWithDepth(stmt, depth + 1, [...container, text])
@@ -177,7 +181,8 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
         range: new Range(doc.positionAt(node.getStart(sourceFile)), doc.positionAt(node.getEnd())),
         selectionRange: new Range(doc.positionAt(node.getStart(sourceFile)), doc.positionAt(node.getStart(sourceFile))),
         label: `default: `,
-        detail: "switch case"
+        detail: "switch case",
+        parent: depth ? node.parent : undefined
       });
       node.statements.forEach(stmt =>
         visitWithDepth(stmt, depth + 1, [...container, 'default'])
@@ -213,7 +218,8 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
         selectionRange: new Range(doc.positionAt(node.name.getStart(sourceFile)), doc.positionAt(node.name.getEnd())),
         range: new Range(doc.positionAt(node.getStart(sourceFile)), doc.positionAt(node.getEnd())),
         label: superString ? `${name}${superString}` : name,
-        detail: "class declaration"
+        detail: "class declaration",
+        parent: depth ? node.parent : undefined
       });
 
       const classContainer = [...container, name];
@@ -233,7 +239,8 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
             range: new Range(doc.positionAt(member.getStart(sourceFile)), doc.positionAt(member.getEnd())),
             selectionRange: new Range(doc.positionAt(member.getStart(sourceFile)), doc.positionAt(member.getStart(sourceFile))),
             label: `constructor ( ${asString} )`,
-            detail: `${name} class constructor`
+            detail: `${name} class constructor`,
+            parent: depth ? node.parent : undefined
           });
           member.body?.statements.forEach(stmt =>
             visitWithDepth(stmt, depth + 2, [...classContainer, "constructor"])
@@ -254,7 +261,8 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
             range: new Range(doc.positionAt(member.getStart(sourceFile)), doc.positionAt(member.getEnd())),
             selectionRange: new Range(doc.positionAt(member.name.getStart(sourceFile)), doc.positionAt(member.name.getStart(sourceFile))),
             label: `${methodName} ( ${asString} )`,
-            detail: `${name} class method`
+            detail: `${name} class method`,
+            parent: depth ? node.parent : undefined
           });
           member.body?.statements.forEach(stmt =>
             visitWithDepth(stmt, depth + 2, [...classContainer, methodName])
@@ -275,7 +283,8 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
             range: new Range(doc.positionAt(member.getStart(sourceFile)), doc.positionAt(member.getEnd())),
             selectionRange: new Range(doc.positionAt(member.name.getStart(sourceFile)), doc.positionAt(member.name.getEnd())),
             label: `${propName} = ${initText}`,
-            detail: `${name} class property`
+            detail: `${name} class property`,
+            parent: depth ? node.parent : undefined
           });
         }
       });
@@ -327,7 +336,8 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
                 ? innerName
                   ? `assigned function '${innerName}'`
                   : "assigned function"
-                : "container object"
+                : "container object",
+              parent: depth ? node.parent : undefined
             });
           }
         });
@@ -349,7 +359,8 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
               : new Range(doc.positionAt((left as ts.PropertyAccessExpression).getStart(sourceFile)), doc.positionAt((left as ts.PropertyAccessExpression).getStart(sourceFile))),
 
             label: `( ${asString} ) =>  `,
-            detail: "anonymous function"
+            detail: "anonymous function",
+            parent: depth ? node.parent : undefined
           });
         } else {
           out.push({
@@ -365,7 +376,8 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
               : new Range(doc.positionAt(right.getStart(sourceFile)), doc.positionAt(right.getStart(sourceFile))),
 
             label: `${innerName}()`,
-            detail: "inner named function"
+            detail: "inner named function",
+            parent: depth ? node.parent : undefined
           });
         }
 
@@ -414,7 +426,8 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
           : new Range(doc.positionAt((left as ts.PropertyAccessExpression).getStart(sourceFile)), doc.positionAt((left as ts.PropertyAccessExpression).getStart(sourceFile))),
 
         label: `${chain.at(-1)}: ${value}`,
-        detail: "object property"
+        detail: "object property",
+        parent: depth ? node.parent : undefined
       });
     }
 
@@ -484,7 +497,8 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
         range: new Range(doc.positionAt(node.getStart(sourceFile)), doc.positionAt(node.getEnd())),
         selectionRange: new Range(doc.positionAt(node.getStart(sourceFile)), doc.positionAt(node.getStart(sourceFile))),
         label,
-        detail
+        detail,
+        parent: depth ? node.parent : undefined
       });
 
       // if ((isArrowFunc || isFuncExpr) && ts.isBlock(init?.body)) {
@@ -539,7 +553,8 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
             range: new Range(doc.positionAt(prop.getStart(sourceFile)), doc.positionAt(prop.getEnd())),
             selectionRange: new Range(doc.positionAt(prop.name.getStart(sourceFile)), doc.positionAt(prop.name.getStart(sourceFile))),
             label: isFunc ? `${prop.name.text}: ( ${paramsText} )` : isVar ? `${prop.name.text}: ${initText}` : prop.name.text,
-            detail: (isFunc || isMethod) ? "object method" : isObj ? "nested object" : "object property"
+            detail: (isFunc || isMethod) ? "object method" : isObj ? "nested object" : "object property",
+            parent: depth ? node.parent : undefined
           });
 
           // are the next 3 conditionals handled by node.forEachChild(child => visitWithDepth(stmt, depth + 1, [...container, name]) ??
@@ -600,7 +615,8 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
           range: new Range(doc.positionAt(node.getStart(sourceFile)), doc.positionAt(node.getEnd())),
           selectionRange: new Range(doc.positionAt(expr.getStart(sourceFile)), doc.positionAt(expr.getStart(sourceFile))),
           label,
-          detail
+          detail,
+          parent: depth ? node.parent : undefined
         });
       }
       node.arguments.forEach(arg => visitWithDepth(arg, depth + 1, container));
@@ -629,7 +645,8 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
           : new Range(doc.positionAt(node.getStart(sourceFile)), doc.positionAt(node.getEnd())),
 
         label: `${node.getText()}`,
-        detail: path ? `${path.join(' > ')} > return` : "return"   // TODO: identify method/function/case/etc. returns
+        detail: path ? `${path.join(' > ')} > return` : "return",   // TODO: identify method/function/case/etc. returns
+        parent: depth ? node.parent : undefined
       });
 
       if (node.expression) visitWithDepth(node.expression, depth + 1, container);
@@ -833,13 +850,9 @@ export async function filterTree(query: (keyof SymMap)[] | string, items: Symbol
 }
 
 
-export async function addParentsToSymbolNodes(treeSymbols: SymbolNode[]): Promise<SymbolNodeWithParent[]> {
+// export async function addParentsToSymbolNodes(treeSymbols: SymbolNode[]): Promise<SymbolNodeWithParent[]> {
 
-  console.log(treeSymbols);
-
-
-
-
-  return [];
-}
+//   console.log(treeSymbols);
+//   return [];
+// }
 

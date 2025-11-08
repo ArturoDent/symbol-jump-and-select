@@ -14,6 +14,7 @@ import {collectSymbolItemsFromSource} from './nodeList';
 import {filterDocNodes} from './nodeFilter';
 import {isMap} from 'util/types';
 
+
 // import {Fuse, fuseOptions} from './fuzzySearch';
 // import fuzzysort from 'fuzzysort';
 
@@ -234,7 +235,8 @@ export async function render(isJSTS: boolean, items: NodePickItems | SymbolMap) 
           if (!allDepthMap.size)
             allDepthMap = await unfilteredDepthMap(isJSTS, arrowFunctionSymbols, symbolDepthMap);
           if (allDepthMap.size) {
-            await module.exports.render(isJSTS, allDepthMap);
+            // await module.exports.render(isJSTS, allDepthMap);
+            await render(isJSTS, allDepthMap);
             filterState = "not filtered";
           }
         }
@@ -242,7 +244,7 @@ export async function render(isJSTS: boolean, items: NodePickItems | SymbolMap) 
           if (!filteredDepthMap.size)
             filteredDepthMap = await filterDepthMap(isJSTS, arrowFunctionSymbols, symbolDepthMap, kbSymbolsSaved);
           if (filteredDepthMap.size) {
-            await module.exports.render(isJSTS, filteredDepthMap);
+            await render(isJSTS, filteredDepthMap);
             filterState = "filtered";
           }
         }
@@ -253,7 +255,7 @@ export async function render(isJSTS: boolean, items: NodePickItems | SymbolMap) 
           if (!allDocNodes.length)
             allDocNodes = await collectSymbolItemsFromSource(document);
           if (allDocNodes.length) {
-            await module.exports.render(isJSTS, allDocNodes);
+            await render(isJSTS, allDocNodes);
             filterState = "not filtered";
           }
         }
@@ -261,7 +263,7 @@ export async function render(isJSTS: boolean, items: NodePickItems | SymbolMap) 
           if (!filteredDocNodes.length)
             filteredDocNodes = await filterDocNodes(kbSymbolsSaved, allDocNodes);
           if (filteredDocNodes.length) {
-            await module.exports.render(isJSTS, filteredDocNodes);
+            await render(isJSTS, filteredDocNodes);
             filterState = "filtered";
           }
         }

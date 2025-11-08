@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import {collectSymbolItemsFromSource, buildNodeTree, addParentsToSymbolNodes, filterTree} from './nodeList';
-import type {NodeTreeItem, SymMap, SymbolNode, SymbolNodeWithParent} from './types';
-import * as Globals from './globals';
+import {collectSymbolItemsFromSource, buildNodeTree, filterTree} from './nodeList';
+import type {NodeTreeItem, SymMap, SymbolNode} from './types';
+import * as Globals from './myGlobals';
 
 
 export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
@@ -10,6 +10,9 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
   readonly onDidChangeTreeData: vscode.Event<SymbolNode | undefined | null | void> = this._onDidChangeTreeData.event;
 
   private _Globals = Globals.default;
+
+  private view?: vscode.TreeView<SymbolNode>;
+  public setView(view: vscode.TreeView<SymbolNode>) {this.view = view;}
 
   public static locked = false;
   private tree: SymbolNode[] = [];
@@ -36,7 +39,7 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
   //   this._onDidChangeTreeData.fire();
   // }
 
-  async refresh(filterQuery: (keyof SymMap)[] | string): Promise<void> {
+  public async refresh(filterQuery: (keyof SymMap)[] | string): Promise<void> {
     this.filterQuery = filterQuery;
 
     const editor = vscode.window.activeTextEditor;
@@ -47,20 +50,22 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
     }
 
     const uri = editor.document.uri;
-    let docSymbols: vscode.DocumentSymbol[] | NodeTreeItem[];
+    // let docSymbols: vscode.DocumentSymbol[] | NodeTreeItem[];
+    let docSymbols: SymbolNode[] | NodeTreeItem[];
     let treeSymbols: SymbolNode[] = [];
-    let treeSymbolsWithParent: SymbolNodeWithParent[] = [];
+    // let treeSymbolsWithParent: SymbolNodeWithParent[] = [];
 
     if (this._Globals.makeTreeView && this._Globals.useTypescriptCompiler && this._Globals.isJSTS) {
       const nodes = await collectSymbolItemsFromSource(editor.document);
       docSymbols = await buildNodeTree(nodes) as NodeTreeItem[];
       treeSymbols = toSymbolNodesFromNodeTreeItems(docSymbols, uri);
-      treeSymbolsWithParent = await addParentsToSymbolNodes(treeSymbols);
+      // treeSymbolsWithParent = await addParentsToSymbolNodes(treeSymbols);
     }
     else if (this._Globals.makeTreeView) {
-      docSymbols = await getDocumentSymbolsWithRetry(uri, 6, 200) as vscode.DocumentSymbol[];
+      // docSymbols = await getDocumentSymbolsWithRetry(uri, 6, 200) as vscode.DocumentSymbol[];
+      docSymbols = await getDocumentSymbolsWithRetry(uri, 6, 200) as SymbolNode[];
       treeSymbols = toSymbolNodesNodefromDocumentSymbols(docSymbols, uri);
-      treeSymbolsWithParent = await addParentsToSymbolNodes(treeSymbols);
+      // treeSymbolsWithParent = await addParentsToSymbolNodes(treeSymbols);
     }
 
     if (filterQuery.length > 0) treeSymbols = await filterTree(filterQuery, treeSymbols);
@@ -72,23 +77,85 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
     }
 
     this.tree = treeSymbols;
+    await this.attachParents(this.tree);
     this._onDidChangeTreeData.fire();
+  }
 
-    this.tree = treeSymbols;
-    this._onDidChangeTreeData.fire();
+  // use SymbolNode.children to assign SymbolNode.parent values
+  private async attachParents(roots: SymbolNode[]): Promise<void> {
+    function walk(node: SymbolNode, parent?: SymbolNode) {
+      node.parent = parent;
+      if (node.children && node.children.length) {
+        for (const child of node.children) {
+          walk(child, node);
+        }
+      }
+    }
 
-    // expand all root nodes
-    // if (this.view) {
-    //   for (const node of this.tree) {
-    //     // use a very large expand depth so children open too
-    //     // Number.MAX_SAFE_INTEGER ensures full expansion
-    //     try {
-    //       await this.view.reveal(node, {expand: Number.MAX_SAFE_INTEGER, focus: false, select: false});
-    //     } catch (e) {
-    //       // ignore reveal failures when tree not visible
-    //     }
-    //   }
-    // }
+    for (const root of roots) {
+      walk(root, undefined);
+    }
+  }
+
+  // this needs getParent(element) to work
+  public async expandAll(): Promise<void> {
+    if (this.view && this.tree.length) {
+      let middleSymbol = await this.getSymbolAtCenterOfViewport();
+      let middleSymbolOuterParent = this.tree[0];
+
+      if (middleSymbol) {
+        for (const topNode of this.tree) {
+          if (topNode.range.contains(middleSymbol.range)) middleSymbolOuterParent = topNode;
+        }
+
+        for (const node of this.tree) {
+          if (node === middleSymbolOuterParent) continue;
+          // Number.MAX_SAFE_INTEGER ensures full expansion
+          try {
+            await this.view.reveal(node, {expand: Number.MAX_SAFE_INTEGER, focus: false, select: false});
+          } catch (e) {
+            // ignore reveal failures when tree not visible
+          }
+        }
+        if (middleSymbol) {
+          await this.view.reveal(middleSymbolOuterParent, {expand: Number.MAX_SAFE_INTEGER, focus: false, select: false});
+          await this.view.reveal(middleSymbol, {expand: Number.MAX_SAFE_INTEGER, focus: true, select: false});
+        } else await this.view.reveal(this.tree[0], {expand: Number.MAX_SAFE_INTEGER, focus: true, select: false});
+      }
+    }
+  }
+
+  private async getSymbolAtCenterOfViewport(): Promise<SymbolNode | undefined> {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) return undefined;
+    const visible = editor.visibleRanges[0];
+    if (!this.view || !this.tree.length || !visible) return undefined;
+
+    const middleLine = Math.floor((visible.start.line + visible.end.line) / 2);
+
+    let middleSymbol: SymbolNode | undefined;
+    let minimumDistance = Number.POSITIVE_INFINITY;
+
+    function walk(symbols: SymbolNode[]) {
+      for (const s of symbols) {
+        // consider the symbol's heading/start line for "nearest" semantics
+        const dist = Math.abs(s.selectionRange.start.line - middleLine);
+        if (dist < minimumDistance) {
+          minimumDistance = dist;
+          middleSymbol = s;
+        }
+        if (s.children && s.children.length) {
+          walk(s.children);
+        }
+      }
+    }
+
+    walk(this.tree);
+    return middleSymbol;
+  }
+
+  getParent(element: SymbolNode): SymbolNode | null {
+    return element.parent ?? null;
   }
 
   getTreeItem(element: SymbolNode): vscode.TreeItem {
@@ -120,7 +187,7 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
       return Promise.resolve(this.tree);
     }
     return Promise.resolve(element.children ?? []);
-  }
+  };
 
   // getParent(element: SymbolNode): SymbolNode | null {
   //   return element.parent ?? null;
@@ -224,14 +291,15 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
   }
 }
 
-async function getDocumentSymbolsWithRetry(uri: vscode.Uri, attempts = 6, delayMs = 200): Promise<vscode.DocumentSymbol[] | undefined> {
+// async function getDocumentSymbolsWithRetry(uri: vscode.Uri, attempts = 6, delayMs = 200): Promise<vscode.DocumentSymbol[] | undefined> {
+async function getDocumentSymbolsWithRetry(uri: vscode.Uri, attempts = 6, delayMs = 200): Promise<SymbolNode[] | undefined> {
   for (let i = 0; i < attempts; i++) {
     const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[] | undefined>(
       'vscode.executeDocumentSymbolProvider',
       uri
     );
     if (symbols && symbols.length > 0) {
-      return symbols;
+      return symbols as SymbolNode[];
     }
     // If provider returned empty array it might still be valid; still retry in case of initialization
     await new Promise(res => setTimeout(res, delayMs * (1 + i * 0.5)));
@@ -239,7 +307,8 @@ async function getDocumentSymbolsWithRetry(uri: vscode.Uri, attempts = 6, delayM
   return undefined;
 }
 
-const toSymbolNodesNodefromDocumentSymbols = (ds: vscode.DocumentSymbol[], uri: vscode.Uri): SymbolNode[] =>
+// const toSymbolNodesNodefromDocumentSymbols = (ds: vscode.DocumentSymbol[], uri: vscode.Uri): SymbolNode[] =>
+const toSymbolNodesNodefromDocumentSymbols = (ds: SymbolNode[], uri: vscode.Uri): SymbolNode[] =>
   ds.map(s => ({
     name: s.name,
     detail: SymbolsProvider.kindToName(s.kind),   // e.g., 'class", 'function'
@@ -248,7 +317,8 @@ const toSymbolNodesNodefromDocumentSymbols = (ds: vscode.DocumentSymbol[], uri: 
     selectionRange: s.selectionRange,
     uri,
     // symbol children are returned in alphabetical order by vscode
-    children: toSymbolNodesNodefromDocumentSymbols(s.children, uri).sort((a, b) => a.range.start.isBefore(b.range.start) ? -1 : 1)
+    children: toSymbolNodesNodefromDocumentSymbols(s.children, uri).sort((a, b) => a.range.start.isBefore(b.range.start) ? -1 : 1),
+    parent: s.parent
   }));
 
 // make SymbolNodes out of NodeTreeItems
@@ -262,39 +332,13 @@ const toSymbolNodesFromNodeTreeItems = (ds: NodeTreeItem[], uri: vscode.Uri): Sy
     uri,
     // parent: s.node.parent,
     // symbol children are returned in alphabetical order by vscode
-    children: toSymbolNodesFromNodeTreeItems(s.children, uri)
+    children: toSymbolNodesFromNodeTreeItems(s.children, uri),
     // children: toNode(s.children, uri).sort((a, b) => a.range.start.isBefore(b.range.start) ? -1 : 1)
+    parent: s.node.parent
   }));
 
 
-// import {
-//   TreeDataProvider,
-//   EventEmitter,
-//   Event,
-//   window
-// } from 'vscode';
+// window.onDidChangeTextEditorVisibleRanges(e): (textEditor, visibleRanges)
 
-// export class NodeTreeProvider implements TreeDataProvider<NodeTreeItem> {
-//   private _onDidChangeTreeData = new EventEmitter<NodeTreeItem | null>();
-//   readonly onDidChangeTreeData: Event<NodeTreeItem | null> =
-//     this._onDidChangeTreeData.event;
+// TextEditorCursorStyle.visibleRanges: readonly Range[]
 
-//   private rootItems: NodeTreeItem[];
-
-//   constructor(nodes: NodePickItem[]) {
-//     this.rootItems = buildTree(nodes);
-//   }
-
-//   getTreeItem(element: NodeTreeItem) {
-//     return element;
-//   }
-
-//   getChildren(element?: NodeTreeItem) {
-//     return element ? element.childrenItems : this.rootItems;
-//   }
-
-//   refresh(nodes: NodePickItem[]) {
-//     this.rootItems = buildTree(nodes);
-//     this._onDidChangeTreeData.fire(null);
-//   }
-// }
