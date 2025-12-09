@@ -68,7 +68,7 @@
         "title": "Symbols Tree",
         "additionalProperties": false,
         "properties": {
-          "symbolsTree.collapseTreeViewItems": {
+          "symbolsTree.collapseViewItems": {
             "type": "string",
             "enum": [
               "expandOnOpen",
@@ -106,57 +106,67 @@
     "menus": {
       "commandPalette": [
         {
-          "command": "symbolsTree.filterSymbolTree",
-          "when": "false"
+          "command": "symbolsTree.applyFilters",
+          "when": "symbolsTree.visible"
         },
         {
           "command": "symbolsTree.revealSymbol",
-          "when": "false"
-        },
-        {
-          "command": "symbolsTree.refreshTree",
-          "when": "false"
+          "when": "symbolsTree.visible && symbolsTree.hasSelection"
         },
         {
           "command": "symbolsTree.selectSymbol",
-          "when": "false"
+          "when": "symbolsTree.visible && symbolsTree.hasSelection"
+        },
+        {
+          "command": "symbolsTree.refresh",
+          "when": "symbolsTree.visible"
+        },
+        {
+          "command": "symbolsTree.lock",
+          "when": "symbolsTree.visible && !symbolsTree.locked"
+        },
+        {
+          "command": "symbolsTree.unlock",
+          "when": "symbolsTree.visible && symbolsTree.locked"
         }
       ],
       "view/title": [
         {
-          "command": "symbolsTree.lockTree",
-          "when": "symbolsTree.visible && symbolsTree.locked === false",
+          "command": "symbolsTree.lock",
+          "when": "!symbolsTree.locked",
           "group": "navigation@1"
         },
         {
-          "command": "symbolsTree.unlockTree",
-          "icon": "$(unlock)",
-          "when": "symbolsTree.visible && symbolsTree.locked === true",
+          "command": "symbolsTree.unlock",
+          "when": "symbolsTree.locked",
           "group": "navigation@1"
         },
         {
-          "command": "symbolsTree.filterTree",
-          "icon": "$(filter)",
-          "when": "view == symbolsTree",
+          "command": "symbolsTree.getFilter",
           "group": "navigation@2"
         },
         {
-          "command": "symbolsTree.refreshTree",
-          "icon": "$(refresh)",
-          "when": "view == symbolsTree",
+          "command": "symbolsTree.refresh",
           "group": "navigation@3"
         },
         {
-          "command": "symbolsTree.collapseTree",
-          "icon": "$(collapse-all)",
-          "when": "view == symbolsTree",
+          "command": "symbolsTree.collapseAll",
+          "when": "!symbolsTree.collapsed",
+          "group": "navigation@4"
+        },
+        {
+          "command": "symbolsTree.expandAll",
+          "when": "symbolsTree.collapsed",
           "group": "navigation@4"
         }
       ],
       "view/item/context": [
         {
           "command": "symbolsTree.selectSymbol",
-          "icon": "$(selection)",
+          "icon": {
+            "light": "resources/light/selection.svg",
+            "dark": "resources/dark/selection.svg"
+          },
           "when": "viewItem == symbolNode",
           "group": "inline@1"
         }
@@ -165,63 +175,131 @@
     "commands": [
       {
         "command": "symbolsTree.showQuickPick",
-        "title": "Open a QuickInput of filtered symbols.",
+        "title": "Open a QuickInput of filtered symbols",
         "category": "Symbols Tree"
       },
       {
-        "command": "symbolsTree.filterSymbolTree",
-        "title": "Apply a filter to the symbol tree.",
+        "command": "symbolsTree.applyFilters",
+        "title": "Apply a filter from a keybinding",
         "category": "Symbols Tree",
-        "shortTitle": "Filter",
-        "enablement": "symbolsTree.visible"
+        "shortTitle": "Filter"
       },
       {
-        "command": "symbolsTree.lockTree",
-        "title": "Lock Tree",
+        "command": "symbolsTree.lock",
+        "title": "Lock",
+        "shortTitle": "Lock",
         "category": "Symbols Tree",
-        "enablement": "symbolsTree.visible",
-        "icon": "$(lock)"
+        "icon": {
+          "light": "resources/light/lock.svg",
+          "dark": "resources/dark/lock.svg"
+        }
       },
       {
-        "command": "symbolsTree.unlockTree",
-        "title": "Unlock Tree",
+        "command": "symbolsTree.unlock",
+        "title": "Unlock",
+        "shortTitle": "Unlock",
         "category": "Symbols Tree",
-        "enablement": "symbolsTree.visible",
-        "icon": "$(unlock)"
+        "icon": {
+          "light": "resources/light/unlock.svg",
+          "dark": "resources/dark/unlock.svg"
+        }
       },
       {
-        "command": "symbolsTree.refreshTree",
+        "command": "symbolsTree.refresh",
         "category": "Symbols Tree",
         "title": "Refresh",
-        "enablement": "symbolsTree.visible",
-        "icon": "$(refresh)"
+        "shortTitle": "Refresh",
+        "icon": {
+          "light": "resources/light/refresh.svg",
+          "dark": "resources/dark/refresh.svg"
+        }
       },
       {
-        "command": "symbolsTree.filterTree",
-        "title": "Open a QuickInput to filter/find within the symbol tree.",
+        "command": "symbolsTree.getFilter",
+        "title": "Get filter",
         "category": "Symbols Tree",
-        "enablement": "symbolsTree.visible",
+        "shortTitle": "Get Filter",
         "icon": "$(filter)"
       },
       {
-        "command": "symbolsTree.collapseTree",
-        "title": "Collapse the symbol tree.",
+        "command": "symbolsTree.collapseAll",
+        "title": "Collapse All",
+        "shortTitle": "Collapse All",
         "category": "Symbols Tree",
-        "enablement": "symbolsTree.visible",
-        "icon": "$(collapse-all)"
+        "icon": {
+          "light": "resources/light/square-minus.svg",
+          "dark": "resources/dark/square-minus.svg"
+        }
+      },
+      {
+        "command": "symbolsTree.expandAll",
+        "title": "Expand All",
+        "shortTitle": "Expand All",
+        "category": "Symbols Tree",
+        "icon": {
+          "light": "resources/light/square-plus.svg",
+          "dark": "resources/dark/square-plus.svg"
+        }
       },
       {
         "command": "symbolsTree.revealSymbol",
-        "title": "Go to this symbol.",
-        "category": "Symbols Tree",
-        "enablement": "symbolsTree.visible"
+        "title": "Go to selected symbol(s)",
+        "shortTitle": "Go",
+        "category": "Symbols Tree"
       },
       {
         "command": "symbolsTree.selectSymbol",
-        "title": "Select this symbol.",
+        "title": "Select symbol(s)",
+        "shortTitle": "Select",
         "category": "Symbols Tree",
-        "enablement": "symbolsTree.visible",
         "icon": "$(selection)"
+      }
+    ],
+    "keybindings": [
+      {
+        "key": "alt+f",
+        "command": "symbolsTree.applyFilters",
+        "when": "symbolsTree.visible"
+      },
+      {
+        "key": "alt+l",
+        "command": "symbolsTree.lock",
+        "when": "symbolsTree.visible && !symbolsTree.locked"
+      },
+      {
+        "key": "alt+l",
+        "command": "symbolsTree.unlock",
+        "when": "symbolsTree.visible && symbolsTree.locked"
+      },
+      {
+        "key": "alt+r",
+        "command": "symbolsTree.refresh",
+        "when": "symbolsTree.visible"
+      },
+      {
+        "key": "alt+g",
+        "command": "symbolsTree.getFilter",
+        "when": "symbolsTree.visible"
+      },
+      {
+        "key": "alt+c",
+        "command": "symbolsTree.collapseAll",
+        "when": "symbolsTree.visible && !symbolsTree.collapsed"
+      },
+      {
+        "key": "alt+c",
+        "command": "symbolsTree.expandAll",
+        "when": "symbolsTree.visible && symbolsTree.collapsed"
+      },
+      {
+        "key": "alt+t",
+        "command": "symbolsTree.revealSymbol",
+        "when": "symbolsTree.visible && symbolsTree.hasSelection"
+      },
+      {
+        "key": "alt+s",
+        "command": "symbolsTree.selectSymbol",
+        "when": "symbolsTree.visible && symbolsTree.hasSelection"
       }
     ]
   },
@@ -244,5 +322,8 @@
     "eslint": "^9.25.1",
     "fuzzysort": "^3.1.0",
     "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "ts-debounce": "^4.0.0"
   }
 }

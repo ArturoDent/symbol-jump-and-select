@@ -1,6 +1,9 @@
 import {DocumentSymbol, SymbolKind} from 'vscode';
 import {buildSymMap} from './symbolKindMap';
 import type {SymMap, SymbolMap, SymbolPickItem} from './types';
+import * as Globals from './myGlobals';
+
+const _Globals = Globals.default;
 
 
 /**   
@@ -77,7 +80,7 @@ export function compareRangesReverse(symbol1: DocumentSymbol, symbol2: DocumentS
  * Filter for keybinding "symbols".
  * Don't include other variables UNLESS there is some child of the right kind.
  */
-export async function filterDepthMap(isJSTS: boolean, arrowFunctionSymbols: DocumentSymbol[], symbolDepthMap: SymbolMap, kbSymbols: (keyof SymMap)[]): Promise<SymbolMap> {
+export async function filterDepthMap(arrowFunctionSymbols: DocumentSymbol[], symbolDepthMap: SymbolMap, kbSymbols: (keyof SymMap)[]): Promise<SymbolMap> {
 
   let mergedMap = new Map();
 
@@ -91,7 +94,7 @@ export async function filterDepthMap(isJSTS: boolean, arrowFunctionSymbols: Docu
 
     let match = false;
 
-    if (isJSTS && (symMapHasFunction || symMapHasVariable)) {
+    if (_Globals.isJSTS && (symMapHasFunction || symMapHasVariable)) {
       if (symbol.kind === SymbolKind.Variable && arrowFunctionSymbols.length) {
         let isArrowFunction = !!arrowFunctionSymbols.find((arrowFunction: DocumentSymbol) => {
           return arrowFunction.range.isEqual(symbol.range);
@@ -111,7 +114,8 @@ export async function filterDepthMap(isJSTS: boolean, arrowFunctionSymbols: Docu
 
     // else if (has children and at least one of those is the right kind)
     if (!match && symbol.children.length) {
-      const found = hasMatchingSymbol(isJSTS, arrowFunctionSymbols, [symbol], symMap, symMapHasFunction, isRightKind);  // predicate is isRightKind
+      // const found = hasMatchingSymbol(isJSTS, arrowFunctionSymbols, [symbol], symMap, symMapHasFunction, isRightKind);  // predicate is isRightKind
+      const found = hasMatchingSymbol(arrowFunctionSymbols, [symbol], symMap, symMapHasFunction, isRightKind);  // predicate is isRightKind
       if (found) mergedMap.set(symbol, depth);
     }
   }
@@ -123,13 +127,16 @@ export async function filterDepthMap(isJSTS: boolean, arrowFunctionSymbols: Docu
  * Returns true on first match (early exit).
  * @param predicate - isRightKind() is used here.
  */
-function hasMatchingSymbol(isJSTS: boolean, arrowFunctions: DocumentSymbol[], symbols: DocumentSymbol[], symMap: SymMap, symMapHasFunction: boolean, predicate: Function): boolean {
+// function hasMatchingSymbol(isJSTS: boolean, arrowFunctions: DocumentSymbol[], symbols: DocumentSymbol[], symMap: SymMap, symMapHasFunction: boolean, predicate: Function): boolean {
+function hasMatchingSymbol(arrowFunctions: DocumentSymbol[], symbols: DocumentSymbol[], symMap: SymMap, symMapHasFunction: boolean, predicate: Function): boolean {
   for (const symbol of symbols) {
-    if (predicate(isJSTS, symbol, symMap, symMapHasFunction)) {
+    // if (predicate(isJSTS, symbol, symMap, symMapHasFunction)) {
+    if (predicate(symbol, symMap, symMapHasFunction)) {
       return true;
     }
     if (Array.isArray(symbol.children) && symbol.children.length > 0) {
-      if (hasMatchingSymbol(isJSTS, arrowFunctions, symbol.children, symMap, symMapHasFunction, predicate)) {
+      // if (hasMatchingSymbol(isJSTS, arrowFunctions, symbol.children, symMap, symMapHasFunction, predicate)) {
+      if (hasMatchingSymbol(arrowFunctions, symbol.children, symMap, symMapHasFunction, predicate)) {
         return true;
       }
     }
@@ -141,13 +148,14 @@ function hasMatchingSymbol(isJSTS: boolean, arrowFunctions: DocumentSymbol[], sy
  * Replace arrow function variables with SymbolKind.Function.
  * Include all other variables in the map returned.  Unfiltered.
  */
-export async function unfilteredDepthMap(isJSTS: boolean, arrowFunctionSymbols: DocumentSymbol[], symbolDepthMap: SymbolMap): Promise<SymbolMap> {
+// export async function unfilteredDepthMap(isJSTS: boolean, arrowFunctionSymbols: DocumentSymbol[], symbolDepthMap: SymbolMap): Promise<SymbolMap> {
+export async function unfilteredDepthMap(arrowFunctionSymbols: DocumentSymbol[], symbolDepthMap: SymbolMap): Promise<SymbolMap> {
 
   let mergedMap = new Map();
 
   for await (const [symbol, depth] of symbolDepthMap) {
 
-    if (symbol.kind === SymbolKind.Variable && arrowFunctionSymbols && isJSTS) {
+    if (symbol.kind === SymbolKind.Variable && arrowFunctionSymbols && _Globals.isJSTS) {
       let isArrowFunction = !!arrowFunctionSymbols.find(arrowFunction => {
         return arrowFunction.range.isEqual(symbol.range);
       });
@@ -165,11 +173,11 @@ export async function unfilteredDepthMap(isJSTS: boolean, arrowFunctionSymbols: 
 /**
  * Is the 'symbol' either in the symbols option or is it an arrowFunction (AND we want functions)
  */
-function isRightKind(isJSTS: boolean, arrowFunctions: DocumentSymbol[], symbol: DocumentSymbol, symMap: SymMap, symMapHasFunction: boolean): boolean {
+function isRightKind(arrowFunctions: DocumentSymbol[], symbol: DocumentSymbol, symMap: SymMap, symMapHasFunction: boolean): boolean {
 
   if (Object.values(symMap).includes(symbol.kind)) return true;
 
-  else if (symbol.kind === SymbolKind.Variable && symMapHasFunction && arrowFunctions?.length && isJSTS) {
+  else if (symbol.kind === SymbolKind.Variable && symMapHasFunction && arrowFunctions?.length && _Globals.isJSTS) {
     let isArrowFunction = !!arrowFunctions.find(arrowFunction => {
       return arrowFunction.range.isEqual(symbol.range);
     });

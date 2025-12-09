@@ -7,3 +7,170 @@
           "light": "resources/light/lock.svg",
           "dark": "resources/dark/lock.svg"
         },
+        
+  "const vscodeProductName = vscode.env.appName;",        
+  "const home = os.homedir();",
+  "const platform = process.platform;",
+  "let userSnippetsDir;",
+  "if (platform === 'win32') snippetsBasePath =  path.join(process.env.APPDATA || path.join(home, "AppData", "Roaming"), vscodeProductName, "User", "snippets");"
+  "if (platform === 'darwin') snippetsBasePath =  path.join(home, "Library", "Application Support", vscodeProductName, "User", "snippets");",
+  "userSnippetsDir = path.join(home, ".config", vscodeProductName, "User", "snippets");",
+  
+  
+"if (appName.includes('Insiders')) return 'Code - Insiders';",
+"if (appName.toLowerCase().includes('codium')) return 'VSCodium';",
+"if (appName.toLowerCase().includes('visual studio code')) return 'Code';",
+
+,
+        {
+          "command": "symbolsTree.getFilterForTree",
+          "group": "navigation@2"
+        },
+        {
+          "command": "symbolsTree.refreshTree",
+          "group": "navigation@3"
+        },
+        {
+          "command": "symbolsTree.collapseTree",
+          "when": "!symbolsTree.collapsed",
+          "group": "navigation@4"
+        },
+        {
+          "command": "symbolsTree.expandTree",
+          "when": "symbolsTree.collapsed",
+          "group": "navigation@4"
+        }
+        
+                "icon": {
+          "light": "resources/light/filter.svg",
+          "dark": "resources/dark/filter.svg"
+        }
+        
+        
+
+/**
+ * Select in QP only
+ *
+ */
+// function onSelect() {
+
+//   // GOTO arguments[0].range, if arguments.length
+//   // console.log();
+// }
+
+
+/**
+ *
+ * @param symbolKind
+ */
+// function map(symbolKind: number): ThemeIcon {
+
+//   const mapping = [
+//     new ThemeIcon('symbol-file'),
+//     new ThemeIcon('symbol-module'),
+//     new ThemeIcon('symbol-namespace'),
+//     new ThemeIcon('symbol-package'),
+//     new ThemeIcon('symbol-class'),
+//     new ThemeIcon('symbol-method'),
+//     new ThemeIcon('symbol-property'),
+//     new ThemeIcon('symbol-field'),
+//     new ThemeIcon('symbol-constructor'),
+//     new ThemeIcon('symbol-enum'),
+//     new ThemeIcon('symbol-interface'),
+//     new ThemeIcon('symbol-function'),
+//     new ThemeIcon('symbol-variable'),
+//     new ThemeIcon('symbol-constant'),
+//     new ThemeIcon('symbol-string'),
+//     new ThemeIcon('symbol-number'),
+//     new ThemeIcon('symbol-boolean'),
+//     new ThemeIcon('symbol-array'),
+//     new ThemeIcon('symbol-object'),
+//     new ThemeIcon('symbol-key'),
+//     new ThemeIcon('symbol-null'),
+//     new ThemeIcon('symbol-enum-member'),
+//     new ThemeIcon('symbol-struct'),
+//     new ThemeIcon('symbol-event'),
+//     new ThemeIcon('symbol-operator'),
+//     new ThemeIcon('symbol-type-parameter')
+//   ];
+
+//   return mapping[symbolKind];
+// }
+
+/**
+ *
+ * @param symbolKind
+ */
+// function mapToKind(symbolKind: number): string {
+
+//   const mapping = [
+//     'file',
+//     'module',
+//     'namespace',
+//     'package',
+//     'class',
+//     'method',
+//     'property',
+//     'field',
+//     'constructor',
+//     'enum',
+//     'interface',
+//     'function',
+//     'variable',
+//     'constant',
+//     'string',
+//     'number',
+//     'boolean',
+//     'array',
+//     'object',
+//     'key',
+//     'null',
+//     'enumMember',
+//     'struct',
+//     'event',
+//     'operator',
+//     'typeParameter'
+//   ];
+
+//   return mapping[symbolKind];
+// }
+
+
+// /**
+//  *
+//  */
+// function map2(symbolKind: number): {name: string; iconPath: IconPath;} | undefined {
+
+//   let mapping: Map<SymbolKind, {name: string, iconPath: IconPath;}> = new Map();
+
+//   mapping.set(SymbolKind.File, {name: 'file', iconPath: new ThemeIcon('symbol-file')});
+//   mapping.set(SymbolKind.Module, {name: 'module', iconPath: new ThemeIcon('symbol-module')});
+//   mapping.set(SymbolKind.Namespace, {name: 'namespace', iconPath: new ThemeIcon('symbol-namespace')});
+//   mapping.set(SymbolKind.Package, {name: 'package', iconPath: new ThemeIcon('symbol-package')});
+//   mapping.set(SymbolKind.Class, {name: 'class', iconPath: new ThemeIcon('symbol-class')});
+//   mapping.set(SymbolKind.Method, {name: 'method', iconPath: new ThemeIcon('symbol-method')});
+//   mapping.set(SymbolKind.Property, {name: 'property', iconPath: new ThemeIcon('symbol-property')});
+//   mapping.set(SymbolKind.Field, {name: 'field', iconPath: new ThemeIcon('symbol-field')});
+//   mapping.set(SymbolKind.Constructor, {name: 'constructor', iconPath: new ThemeIcon('symbol-constructor')});
+//   mapping.set(SymbolKind.Enum, {name: 'enum', iconPath: new ThemeIcon('symbol-enum')});
+//   mapping.set(SymbolKind.Interface, {name: 'interface', iconPath: new ThemeIcon('symbol-interface')});
+//   mapping.set(SymbolKind.Function, {name: 'function', iconPath: new ThemeIcon('symbol-function')});
+//   mapping.set(SymbolKind.Variable, {name: 'variable', iconPath: new ThemeIcon('symbol-variable')});
+//   mapping.set(SymbolKind.Constant, {name: 'constant', iconPath: new ThemeIcon('symbol-constant')});
+//   mapping.set(SymbolKind.String, {name: 'string', iconPath: new ThemeIcon('symbol-string')});
+//   mapping.set(SymbolKind.Number, {name: 'number', iconPath: new ThemeIcon('symbol-number')});
+//   mapping.set(SymbolKind.Boolean, {name: 'boolean', iconPath: new ThemeIcon('symbol-boolean')});
+//   mapping.set(SymbolKind.Array, {name: 'array', iconPath: new ThemeIcon('symbol-array')});
+//   mapping.set(SymbolKind.Object, {name: 'object', iconPath: new ThemeIcon('symbol-object')});
+//   mapping.set(SymbolKind.Key, {name: 'key', iconPath: new ThemeIcon('symbol-key')});
+//   mapping.set(SymbolKind.Null, {name: 'null', iconPath: new ThemeIcon('symbol-null')});
+//   mapping.set(SymbolKind.EnumMember, {name: 'enumMember', iconPath: new ThemeIcon('symbol-enum-member')});
+//   mapping.set(SymbolKind.Struct, {name: 'struct', iconPath: new ThemeIcon('symbol-struct')});
+//   mapping.set(SymbolKind.Event, {name: 'event', iconPath: new ThemeIcon('symbol-event')});
+//   mapping.set(SymbolKind.Operator, {name: 'operator', iconPath: new ThemeIcon('symbol-operator')});
+//   mapping.set(SymbolKind.TypeParameter, {name: 'typeParameter', iconPath: new ThemeIcon('symbol-type-parameter')});
+
+//   if (mapping.has(symbolKind)) return mapping.get(symbolKind);
+//   return undefined;
+// }
+

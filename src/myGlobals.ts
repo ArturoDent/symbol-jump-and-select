@@ -1,4 +1,4 @@
-import {ExtensionContext, window, workspace, Uri, ConfigurationTarget} from 'vscode';
+import {ExtensionContext, window, workspace, ConfigurationTarget, TextEditor} from 'vscode';
 
 interface MySettings {
   useTypescriptCompiler: boolean;
@@ -7,11 +7,9 @@ interface MySettings {
 }
 
 
-// export default class _Globals {
 export default class _Globals {
+
   private static readonly section = 'symbolsTree';
-  // private constructor() {}  // private so can't be called from outside
-  public constructor() {}  // private so can't be called from outside
 
   // settings
   public static useTypescriptCompiler: boolean = false;
@@ -19,18 +17,23 @@ export default class _Globals {
   public static collapseTreeViewItems: string = "collapseOnOpen";
 
   // globals
-  public static lastUri: Uri | undefined = window.activeTextEditor?.document.uri;
-  public static refreshSymbols: boolean = true;
+  // public static lastUri: Uri | undefined = window.activeTextEditor?.document.uri;
+  // public static refreshSymbols: boolean = true;
   public static isJSTS: boolean = false;
+  public static context: ExtensionContext;
+
+  public constructor() {}  // private cannot be called from outside
 
 
-  // call this once from activate() ---- await _Globals.init(context);
-  public static async init(context?: ExtensionContext): Promise<void> {
+  // called once from activate() ---- await _Globals.init(context);
+  public static async init(context: ExtensionContext): Promise<void> {
 
     const config = await workspace.getConfiguration(this.section);
     this.useTypescriptCompiler = config.get<boolean>('useTypescriptCompiler', false);
     this.makeTreeView = config.get<boolean>('makeTreeView', true);
     this.collapseTreeViewItems = config.get<string>('collapseTreeViewItems', "collapseOnOpen");
+
+    this.context = context;
 
     if (window.activeTextEditor?.document.languageId.match(/javascript|typescript|javascriptreact|typescriptreact/))
       this.isJSTS = true;
@@ -42,9 +45,18 @@ export default class _Globals {
         this.useTypescriptCompiler = updated.get<boolean>('useTypescriptCompiler', this.useTypescriptCompiler);
         this.makeTreeView = updated.get<boolean>('makeTreeView', this.makeTreeView);
         this.collapseTreeViewItems = updated.get<string>('collapseTreeViewItems', this.collapseTreeViewItems);
+        // TODO: refresh tree if makeTreeView changed and is true
+        // if useTypescriptCompiler changed
+        // if collapseTreeViewItems changed
       }
     });
     if (context) context.subscriptions.push(disposable);
+  }
+
+  public static updateIsJSTS(ev: TextEditor) {
+    if (ev.document.languageId.match(/javascript|typescript|javascriptreact|typescriptreact/))
+      this.isJSTS = true;
+    else this.isJSTS = false;
   }
 
   // ---- private generic accessors used only inside this class ----
@@ -94,59 +106,3 @@ export default class _Globals {
   //   return cfg.inspect<MySettings[K]>(String(key));
   // }
 }
-
-
-// export {_Globals as _Globals};
-
-/**
- * Preferences
- * - Static-only utility for getting/setting extension settings
- * - Uses workspace.getConfiguration(section)
- * - Minimal, no events, no persistence other than VS Code settings
- */
-// export class Settings {
-//   // change this to your extension configuration section
-//   private static readonly section = 'symbolsTree';
-
-//   private constructor() {} // prevent instantiation
-
-//   /** Read a preference with an optional default */
-//   public static get<T>(key: string, defaultValue?: T): T | undefined {
-//     const config = vscode.workspace.getConfiguration(this.section);
-//     return config.get<T>(key, defaultValue as T);
-//   }
-
-//   /** Write a preference; returns the Promise from update */
-//   public static set<T>(key: string, value: T, isGlobal = true): Thenable<void> {
-//     const config = vscode.workspace.getConfiguration(this.section);
-//     const target = isGlobal ? vscode.ConfigurationTarget.Global : vscode.ConfigurationTarget.Workspace;
-//     return config.update(key, value, target);
-//   }
-
-//   /** Inspect whether a value is coming from user/workspace/folder/default */
-//   // public static inspect<T>(key: string) {
-//   //   const config = vscode.workspace.getConfiguration(this.section);
-//   //   return config.inspect<T>(key);
-//   // }
-
-//   /** Convenience typed getters for common keys (optional) */
-//   // Example: add typed wrappers for frequently used keys
-//   public static get useTypescriptCompiler(): boolean {
-//     return this.get<boolean>('useTypescriptCompiler', false) ?? false;
-//   }
-
-//   public static set useTypescriptCompiler(v: boolean) {
-//     // default to global when using convenience setter
-//     void this.set<boolean>('useTypescriptCompiler', v, true);
-//   }
-
-//   // Example: add typed wrappers for frequently used keys
-//   public static get makeTreeView(): boolean {
-//     return this.get<boolean>('makeTreeView', false) ?? false;
-//   }
-
-//   public static set makeTreeView(v: boolean) {
-//     // default to global when using convenience setter
-//     void this.set<boolean>('makeTreeView', v, true);
-//   }
-// }

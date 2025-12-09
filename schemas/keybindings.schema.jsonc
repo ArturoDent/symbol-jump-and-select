@@ -19,6 +19,13 @@
             "enum",
             "interface",
             "function",
+            "call",
+            "return",
+            "arrow",
+            "anonymous",
+            "declaration",
+            "switch",
+            "case",
             "variable",
             "constant",
             "string",
@@ -47,6 +54,13 @@
             "Jump between enums.",
             "Jump between interfaces.",
             "Jump between functions.",
+            "Jump between function calls.",
+            "Jump between function returns.",
+            "Jump between arrow functions.",
+            "Jump between anonymous functions.",
+            "Jump between function declarations.",
+            "Jump between swich statements.",
+            "Jump between switch case statements.",
             "Jump between variables.",
             "Jump between constants.",
             "Jump between strings.",
@@ -103,6 +117,27 @@
               },
               {
                 "const": "function"
+              },
+              {
+                "const": "call"
+              },
+              {
+                "const": "return"
+              },
+              {
+                "const": "arrow"
+              },
+              {
+                "const": "anonymous"
+              },
+              {
+                "const": "declaration"
+              },
+              {
+                "const": "switch"
+              },
+              {
+                "const": "case"
               },
               {
                 "const": "variable"
@@ -165,7 +200,7 @@
           "properties": {
             "command": {
               "type": "string",
-              "pattern": "^symbol-jump-and-select"
+              "pattern": "^symbolsTree"
             }
           }
         },
@@ -174,7 +209,32 @@
             "command": {
               "anyOf": [
                 {
-                  "const": "symbol-jump-and-select.showQuickPick"
+                  "const": "symbolsTree.showQuickPick"
+                },
+                {
+                  "const": "symbolsTree.applyFilters"
+                  // text
+                },
+                {
+                  "const": "symbolsTree.lock"
+                },
+                {
+                  "const": "symbolsTree.unlock"
+                },
+                {
+                  "const": "symbolsTree.refresh"
+                },
+                {
+                  "const": "symbolsTree.collapseAll"
+                },
+                {
+                  "const": "symbolsTree.expandAll"
+                },
+                {
+                  "const": "symbolsTree.select"
+                },
+                {
+                  "const": "symbolsTree.reveal"
                 }
               ]
             }
@@ -187,7 +247,7 @@
             "command": {
               "anyOf": [
                 {
-                  "const": "symbol-jump-and-select.showQuickPick"
+                  "const": "symbolsTree.showQuickPick"
                 }
               ]
             }
@@ -200,7 +260,7 @@
               "type": "object",
               "properties": {
                 "symbols": {
-                  "description": "Which kind of symbols to show in the QuickPick.",
+                  "description": "Which kind of symbols to show in the QuickPick keybinding.",
                   "$ref": "#/definitions/symbols"
                 }
               }

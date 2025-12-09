@@ -17,6 +17,15 @@ const symbolKindMap = {
   "enum": SymbolKind.Enum,
   "interface": SymbolKind.Interface,
   "function": SymbolKind.Function,
+
+  "call": SymbolKind.Function,
+  "return": SymbolKind.Function,
+  "arrow": SymbolKind.Function,
+  "anonymous": SymbolKind.Function,
+  "declaration": SymbolKind.Function,
+  "switch": SymbolKind.Object,
+  "case": SymbolKind.Operator,
+
   "variable": SymbolKind.Variable,
   "constant": SymbolKind.Constant,
   "string": SymbolKind.String,

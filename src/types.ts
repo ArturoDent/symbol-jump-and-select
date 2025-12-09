@@ -3,7 +3,8 @@ import {Uri, Range, DocumentSymbol, SymbolKind, QuickPickItem, TreeItem} from 'v
 export type SymMapKey =
   | "file" | "module" | "namespace" | "package" | "class" | "method" | "property" | "field" | "constructor"
   | "enum" | "interface" | "function" | "variable" | "constant" | "string" | "number" | "boolean" | "array"
-  | "object" | "key" | "null" | "enumMember" | "struct" | "event" | "operator" | "typeParameter";
+  | "object" | "key" | "null" | "enumMember" | "struct" | "event" | "operator" | "typeParameter"
+  | "return" | "call" | "arrow" | "anonymous" | "declaration" | "switch" | "case";
 
 export type SymMap = {
   [key in SymMapKey]: SymbolKind;
@@ -46,6 +47,8 @@ export interface SymbolNode extends DocumentSymbol {
   uri: Uri;
   parent?: SymbolNode;
 };
+
+
 
 // vscode.Symbol.Kind's
 
