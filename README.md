@@ -60,11 +60,13 @@ Here are two examples of keybindings:
 
 #### Open an unfiltered QuickPick and filter by text input:
 
-<img src="https://github.com/ArturoDent/symbol-jump-and-select/blob/main/images/qpFilterRefresh1.gif?raw=true" width="950" height="500" alt="Show selections in QuickPick"/>
+<img src="https://github.com/ArturoDent/symbol-jump-and-select/blob/main/images/qpFilterRefresh1.gif?raw=true" width="750" height="500" alt="Show selections in QuickPick"/>
+
+-----------
 
 #### Open a  QuickPick already filtered by 'class':
 
-<img src="https://github.com/ArturoDent/symbol-jump-and-select/blob/main/images/qpfilterKeybinding1.gif?raw=true" width="950" height="500" alt="Show filter toggle in QuickPick"/>
+<img src="https://github.com/ArturoDent/symbol-jump-and-select/blob/main/images/qpfilterKeybinding1.gif?raw=true" width="750" height="500" alt="Show filter toggle in QuickPick"/>
 
 * Important: You will have to <kbd>Esc</kbd> to hide the QuickPick, clicking outside it will not hide it.
 
@@ -226,6 +228,17 @@ This is a toggle between collapse all  and expand all - there will only be a sin
  In the Command Palette: ``` Symbols Tree: Expand All ```
 
 -----------------
+
+The following command is triggered by clicking on the **selection** icon ( <img src="./icons/selection.jpg" width="16" height="16" alt="selection icon"/> ) found on each line of the TreeView when hovering over an entry:
+
+* **symbolsTree.selectSymbol**  
+ In the Command Palette: ``` Symbols Tree: Apply a filter from a keybinding  ```
+
+ As the following demo shows you can also select more than one entry and then click the selection icon to go to and select all those symbols - with multiple cursors.
+
+<img src="https://github.com/ArturoDent/symbol-jump-and-select/blob/main/images/TreeViewMultipleSelections1.gif?raw=true" width="900" height="500" alt="Multiple selections in the TreeView"/>
+
+---------------
 
 The following command can **ONLY** be triggered by a keybinding:
 
