@@ -8,12 +8,12 @@ Click on an item to go to that symbol **OR** to go to and select that entire sym
 
 ## Symbols TreeView
 
-Initally the Symbols Tree  icon (
+Initially the Symbols Tree  icon (
 <img src="./icons/list-tree.jpg" width="16" height="16" alt="Symbols Tree icon"/>) will appear in the Activity Bar and clicking on it will open the view in the Primary SideBar, but it can be dragged or moved to the Secondary SideBar or the Panel (where the Terminal usually lives).
 
 Here is what the top of the Symbols TreeView looks like:
 
-<img src="https://github.com/ArturoDent/symbol-jump-and-select/blob/main/images/TreeViewIcons.png?raw=true" width="400" height="100" alt="The top portion of a Symbols TreeView in the Side Bar"/>
+<img src="https://github.com/ArturoDent/symbol-jump-and-select/blob/main/images/TreeViewIcons.png?raw=true" width="350" height="100" alt="The top portion of a Symbols TreeView in the Side Bar"/>
 
 Notice the icons across the top:  
 
@@ -39,7 +39,7 @@ Here are two examples of keybindings:
   "key": "alt+o",       // whatever keybinding you want
   "command": "symbolsTree.showQuickPick",
   "args": {
-    "symbols": [
+    "symbols": [      // only use document symbols here
       "class",
       "method",
       "function",
@@ -70,7 +70,7 @@ Here are two examples of keybindings:
 
 * Important: You will have to <kbd>Esc</kbd> to hide the QuickPick, clicking outside it will not hide it.
 
-You can filter by any combination of the following symbols:
+You can filter by any combination of the following symbols (any other text will be ignored by this command but you can always filter the resulting QuickPick by its text input box):
 
 ## `symbols` Options
 
@@ -190,7 +190,7 @@ If you have already filtered by symbols in the keybinding, you can only search i
 
 ### Symbols Tree: a TreeView
 
-The following commands are triggered by clicking on the icons at the top of the TreeView. In addition, they can be triggered from a keybinding (if the `when` clauses apply).
+The following commands are triggered by clicking on the icons at the top of the TreeView. In addition, they can be triggered from a keybinding (if the `when` clauses apply, see the default keybindings below).
 
 * **symbolsTree.lock** : <img src="./icons/lock.jpg" width="16" height="16" alt="lock icon"/>  
  In the Command Palette: ``` Symbols Tree: Lock ```
@@ -204,6 +204,12 @@ This is a toggle between lock and unlock - there will only be a single icon at a
 
 * **symbolsTree.getFilter** : <img src="./icons/filter.jpg" width="16" height="16" alt="filter icon"/>  
  In the Command Palette: ``` Symbols Tree: Get Filter ```
+
+ This command opens an input box for a query/filter to apply to the TreeView items.  It is the same as clicking on the filter icon.
+
+You can enter any text such as symbol names, like `class`, evn though that may not appear in the TreeView symbols.  Information for the symbol types is saved and searchable although not visible.  You can also search/filter by any text that you see such as function or class names, etc.  
+
+You can also input multiple terms which will be handles like an `or` statement.  So you use "myFunction || class" to find both of those.  You can also use "myFunction, someOtherName" to get both of those.  You can chain as many terms as you like in the input box.  
 
 ```plainText
 // handle "class || rex"  => ["class", "rex"] // if query contains "||" split on " || "
@@ -232,11 +238,11 @@ This is a toggle between collapse all  and expand all - there will only be a sin
 The following command is triggered by clicking on the **selection** icon ( <img src="./icons/selection.jpg" width="16" height="16" alt="selection icon"/> ) found on each line of the TreeView when hovering over an entry:
 
 * **symbolsTree.selectSymbol**  
- In the Command Palette: ``` Symbols Tree: Apply a filter from a keybinding  ```
+ In the Command Palette: ``` Symbols Tree: Select symbol(s)  ```
 
- As the following demo shows you can also select more than one entry and then click the selection icon to go to and select all those symbols - with multiple cursors.
+ As the following demo shows you can also select more than one entry and then click the selection icon to go to and select all those symbols - with multiple cursors being created.  In the demo I use <kbd>Alt</kbd>+<kbd>click</kbd> to select multiple symbols in the TreeView list.  You can also use <kbd>Shift</kbd>+<kbd>click</kbd> to select a range of symbols - each symbol will be selected with its own cursor.  
 
-<img src="https://github.com/ArturoDent/symbol-jump-and-select/blob/main/images/TreeViewMultipleSelections1.gif?raw=true" width="900" height="500" alt="Multiple selections in the TreeView"/>
+<img src="https://github.com/ArturoDent/symbol-jump-and-select/blob/main/images/TreeViewMultipleSelections1.gif?raw=true" width="950" height="500" alt="Multiple selections in the TreeView"/>
 
 ---------------
 
@@ -380,7 +386,7 @@ So this extension will determine if those 'variables' are in fact 'functions' an
 ## TODO
 
 * Work on more parents nodes shown on filtering: e.g., show function declaration on switch/case or show the switch on filter by `case`, show class on `constructor`.
-* Conside making `ignoreFocusOut` an optional setting.
+* Consider making `ignoreFocusOut` an optional setting.
 * `centerOnCursor` on opening? Search by symbol/node range.
 * Keep an eye on [TreeView.activeItem](https://github.com/microsoft/vscode/blob/main/src/vscode-dts/vscode.proposed.treeViewActiveItem.d.ts).
 * Follow focus of editor cursor? Center enclosing symbol?
@@ -388,6 +394,7 @@ So this extension will determine if those 'variables' are in fact 'functions' an
 * Keep an eye on [TreeItem markdown labels](https://github.com/microsoft/vscode/blob/main/src/vscode-dts/vscode.proposed.treeItemMarkdownLabel.d.ts).
 * Implement successive searches (using previous results)?
 * Clickable parameters?
+* `showQuickPick` filter by other editor text?
 
 ## Release Notes
 

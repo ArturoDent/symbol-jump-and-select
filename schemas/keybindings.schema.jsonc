@@ -213,7 +213,9 @@
                 },
                 {
                   "const": "symbolsTree.applyFilters"
-                  // text
+                },
+                {
+                  "const": "symbolsTree.getFilter"
                 },
                 {
                   "const": "symbolsTree.lock"
@@ -231,10 +233,10 @@
                   "const": "symbolsTree.expandAll"
                 },
                 {
-                  "const": "symbolsTree.select"
+                  "const": "symbolsTree.selectSymbol"
                 },
                 {
-                  "const": "symbolsTree.reveal"
+                  "const": "symbolsTree.revealSymbol"
                 }
               ]
             }
