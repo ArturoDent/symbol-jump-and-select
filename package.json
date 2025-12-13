@@ -60,7 +60,7 @@
             "type": "boolean",
             "scope": "resource",
             "default": true,
-            "markdownDescription": "Make a Tree View that can be shown in the SideBar, etc."
+            "markdownDescription": "Make a TreeView that can be shown in the SideBar, etc."
           }
         }
       },
@@ -77,8 +77,8 @@
             "scope": "resource",
             "default": "collapseOnOpen",
             "markdownEnumDescriptions": [
-              "Expand all items on when opening or refreshing the tree view.",
-              "Collapse all items on when opening or refreshing the tree view."
+              "Expand all items on when opening or refreshing the TreeView.",
+              "Collapse all items on when opening or refreshing the TreeView."
             ]
           }
         }
@@ -133,30 +133,32 @@
       "view/title": [
         {
           "command": "symbolsTree.lock",
-          "when": "!symbolsTree.locked",
+          "when": "!symbolsTree.locked && view == symbolsTree",
           "group": "navigation@1"
         },
         {
           "command": "symbolsTree.unlock",
-          "when": "symbolsTree.locked",
+          "when": "symbolsTree.locked && view == symbolsTree",
           "group": "navigation@1"
         },
         {
           "command": "symbolsTree.getFilter",
+          "when": "view == symbolsTree",
           "group": "navigation@2"
         },
         {
           "command": "symbolsTree.refresh",
+          "when": "view == symbolsTree",
           "group": "navigation@3"
         },
         {
           "command": "symbolsTree.collapseAll",
-          "when": "!symbolsTree.collapsed",
+          "when": "!symbolsTree.collapsed && view == symbolsTree",
           "group": "navigation@4"
         },
         {
           "command": "symbolsTree.expandAll",
-          "when": "symbolsTree.collapsed",
+          "when": "symbolsTree.collapsed && view == symbolsTree",
           "group": "navigation@4"
         }
       ],
@@ -176,7 +178,8 @@
       {
         "command": "symbolsTree.showQuickPick",
         "title": "Open a QuickInput of filtered symbols",
-        "category": "Symbols Tree"
+        "category": "Symbols Tree",
+        "group": "navigation@1"
       },
       {
         "command": "symbolsTree.applyFilters",

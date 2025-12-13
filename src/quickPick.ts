@@ -17,6 +17,7 @@ import {filterDocNodes} from './nodeFilter';
 import {showQuickPickMessage} from './messages';
 import {isMap} from 'util/types';
 
+// Define a type for the BoundedCache value, key is a Uri
 type QuickPickCache = {
   refreshSymbols: boolean;
   symbols: NodePickItems | SymbolMap;
@@ -53,32 +54,25 @@ export class SymbolPicker {
 
   // Get the Nodes using tsc, and return filtered nodes
   async getNodes(kbSymbols: (keyof SymMap)[], document: TextDocument): Promise<NodePickItems | undefined> {
-    this.kbSymbolsSaved = kbSymbols;
 
+    this.kbSymbolsSaved = kbSymbols;
     let thisUriCache: QuickPickCache | undefined;
 
     if (this.cache.get(document.uri))
       thisUriCache = this.cache.get(document.uri);
 
-    // if (getNewSymbols) {
-    // if undefined thisUriCache or thisUriCache = true
     if (!thisUriCache || thisUriCache.refreshSymbols) {
-      // if (getNewNodes) {
 
       this.allDocNodes = await collectSymbolItemsFromSource(document);
-      // this.symbolDepthMap.clear();
-      // this.filteredDepthMap.clear();
-      // this.allDepthMap.clear();
-      // this.filteredDocNodes = [];
-      // this.docSymbols = [];
+      this.symbolDepthMap.clear();
+      this.filteredDepthMap.clear();
+      this.allDepthMap.clear();
+      this.filteredDocNodes = [];
+      this.docSymbols = [];
     }
     else {
-      console.log("OLD filteredDocNodes");
-      // return this.filteredDocNodes;
-      return thisUriCache.symbols as NodePickItems;
+      this.allDocNodes = thisUriCache.symbols as NodePickItems;
     }
-
-    console.log("NEW filteredDocNodes");
 
     if (this.allDocNodes.length) {
       // if no kbSymbols, don't bother to filter // can that ever happen - defaults to all?
@@ -93,44 +87,44 @@ export class SymbolPicker {
       return undefined;
     }
 
-    // TODO: filteredDocNodes ? if filtered by kbSymbols
     this.cache.set(document.uri, {refreshSymbols: false, symbols: this.allDocNodes});
     return this.filteredDocNodes;
   }
 
   /**
- * 1. Get doc symbols from vscode.executeDocumentSymbolProvider
- * 2. Build an array of symbols for arrow functions (else identified as variables)
- * 3. Build a depth map of all symbols
- * 4. 
+ * 1. Get doc symbols from vscode.executeDocumentSymbolProvider.
+ * 2. Build an array of symbols for arrow functions (else identified as variables).
+ * 3. Build a depth map of all symbols.
+ * 4. Filter the depth map by keybinding symbols.
   */
   async getSymbols(kbSymbols: (keyof SymMap)[], document: TextDocument): Promise<SymbolMap | undefined> {
+
     this.kbSymbolsSaved = kbSymbols;
 
-    let thisUriCache: QuickPickCache | undefined;
+    // Map.get() can return undefined if key not found
+    const thisUriCache: QuickPickCache | undefined = this.cache.get(document.uri);
 
-    if (this.cache.get(document.uri))
-      thisUriCache = this.cache.get(document.uri);
-
-    if (thisUriCache && !thisUriCache.refreshSymbols)
+    if (thisUriCache) {
+      if (isMap(thisUriCache.symbols) && thisUriCache.symbols.size && !thisUriCache.refreshSymbols)
+        return thisUriCache.symbols as SymbolMap;
+      else (!isMap(thisUriCache.symbols) && thisUriCache.symbols.length && !thisUriCache.refreshSymbols);
       return thisUriCache.symbols as SymbolMap;
+    }
 
     else {
-
       this.docSymbols = await commands.executeCommand('vscode.executeDocumentSymbolProvider', document.uri);
-      // this.symbolDepthMap.clear();
-      // this.filteredDepthMap.clear();
-      // this.allDepthMap.clear();
-      // this.allDocNodes = [];
-      // this.filteredDocNodes = [];
+      this.symbolDepthMap.clear();
+      this.filteredDepthMap.clear();
+      this.allDepthMap.clear();
+      this.allDocNodes = [];
+      this.filteredDocNodes = [];
 
-      // this.arrowFunctionSymbols = this._Globals.isJSTS
       this.arrowFunctionSymbols = _Globals.isJSTS
         ? await arrowFunctions.makeSymbolsFromFunctionExpressions(document) || []
         : [];
 
       if (this.docSymbols) {
-        this.symbolDepthMap = traverseSymbols(this.docSymbols, this.symbolDepthMap, document);
+        this.symbolDepthMap = traverseSymbols(this.docSymbols, document);
       }
     }
 
@@ -162,31 +156,31 @@ export class SymbolPicker {
 
     this.filterState = 'filtered';
 
-    const filterButton: QuickInputButton = {
-      iconPath: new ThemeIcon('filter'),
-      // iconPath: {
-      //   dark: Uri.joinPath(context.extensionUri, 'resources/dark/filter.svg'),
-      //   light: Uri.joinPath(context.extensionUri, 'resources/light/filter.svg')
-      // },
-      tooltip: 'Toggle Filter'
-    };
+    // const filterButton: QuickInputButton = {
+    //   iconPath: new ThemeIcon('filter'),
+    //   // iconPath: {
+    //   //   dark: Uri.joinPath(context.extensionUri, 'resources/dark/filter.svg'),
+    //   //   light: Uri.joinPath(context.extensionUri, 'resources/light/filter.svg')
+    //   // },
+    //   tooltip: 'Toggle Filter'
+    // };
 
     const selectButton: QuickInputButton = {
       iconPath: new ThemeIcon('selection'),
       tooltip: 'Select Symbol'
     };
 
-    // const refreshButton =
-    //   iconPath: new ThemeIcon('refresh'),
-    //   tooltip: 'Refresh list'
-    // };
+    const refreshButton: QuickInputButton = {
+      iconPath: new ThemeIcon('refresh'),
+      tooltip: 'Refresh list'
+    };
 
     const qpItems: SymbolPickItem[] = [];
 
     if (isMap(items)) {    // for SymbolMap, non-tsc
 
       items.forEach((depth, symbol) => {
-        let label = `${symbol.name}: ${symbol.detail}`;
+        let label = (parseInt(symbol.name) >= 0) ? symbol.detail : `${symbol.name}: ${symbol.detail}`;
         if (depth) label = ('└─  ' + label).padStart(label.length + (depth * 10), ' ');
 
         // do a reverse mapping from symbol.kind -> "class", "function", etc.
@@ -220,7 +214,7 @@ export class SymbolPicker {
     qp.items = qpItems;
     qp.title = 'Select Symbols';
     (qp as any).sortByLabel = false;  // stop alphabetical resorting, especially in onDidChangeValue() below
-    qp.buttons = [filterButton];
+    qp.buttons = [refreshButton];
     // qp.buttons = [filterButton, refreshButton];
 
     qp.onDidTriggerItemButton((event: QuickPickItemButtonEvent<SymbolPickItem>) => {
@@ -253,13 +247,13 @@ export class SymbolPicker {
       qp.hide();
     });
 
-    // filterButton
+    // refreshButton
     // make the filtered version first and save it, then, if called, make the All version and save it
     qp.onDidTriggerButton(async button => {
       const document = window.activeTextEditor?.document;
       if (!document) return;
 
-      if (button === filterButton) {
+      if (button === refreshButton) {
         if (this.symbolDepthMap.size) {
           if (this.filterState === 'filtered') {
             if (!this.allDepthMap.size)

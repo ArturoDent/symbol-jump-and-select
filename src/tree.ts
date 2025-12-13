@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import {collectSymbolItemsFromSource, buildNodeTree, filterTree} from './nodeList';
-import type {NodeTreeItem, SymMap, SymbolNode} from './types';
+import type {NodeTreeItem, SymbolNode} from './types';
 import _Globals from './myGlobals';
 
 import {showTreeViewMessage, showQuickPickMessage} from './messages';
@@ -8,12 +8,10 @@ import {BoundedCache} from './mapCache';
 import {debounce} from "ts-debounce";
 
 
-let allTreeSymbols: SymbolNode[] = [];
 let filteredTreeSymbols: SymbolNode[] = [];
 
-// Define a reusable alias for the value type
+// Define a type for the BoundedCache value, key is a Uri
 type TreeCache = {
-  locked?: boolean;
   refreshSymbols: boolean;
   symbols: SymbolNode[];
 };
@@ -25,33 +23,35 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
   readonly onDidChangeTreeData: vscode.Event<SymbolNode | undefined | null | void> = this._onDidChangeTreeData.event;
 
   private disposables: vscode.Disposable[] = [];
-  private debouncedRefresh: ReturnType<typeof debounce>;
   private view?: vscode.TreeView<SymbolNode>;
 
   // Create a bounded cache of Map <Uri → CacheEntry> with max size 3
   private cache = new BoundedCache<vscode.Uri, TreeCache>(3);
+  public debouncedRefresh: ReturnType<typeof debounce>;
 
-  // private lastVisitedUri: vscode.Uri | undefined;
   private lockedUri: vscode.Uri | undefined = undefined;
   public static locked = false;
   public static filtered = false;
 
   private tree: SymbolNode[] = [];
-  // private filterQuery: (keyof SymMap)[] | string = '';  // not used, could enable creating a filtered TreeView from a setting
-  private filterQuery: string[] | string = '';  // not used, could enable creating a filtered TreeView from a setting
+  private filterQuery: string[] | string = '';  // could enable creating a filtered TreeView from a setting
 
   constructor(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(this.cache);
 
-    // create a debounced async function (300ms)
-    // bind the method so `this` is correct and avoid nested async wrapper
-    this.debouncedRefresh = debounce(this.refresh.bind(this) as (q: (keyof SymMap)[] | string) => Promise<void>, 300);
+    // create a debounced async function
+    // bind the method so `this` is correct
+    // this.debouncedRefresh = debounce(this.refresh.bind(this) as (q: (keyof SymMap)[] | string) => Promise<void>, 300);
+    // 800ms seems to be necessary to avaoid a rapid switching between editors problem
+    this.debouncedRefresh = debounce((q) => this.refresh(q), 800, {isImmediate: false});  // this also correctly binds 'this.'
 
-    const sub = vscode.workspace.onDidChangeTextDocument((event) => {
+    const sub = vscode.workspace.onDidChangeTextDocument(async (event) => {
       if (event.contentChanges.length) {
         this.cache.set(event.document.uri, {refreshSymbols: true, symbols: []});
-        void this.debouncedRefresh(this.filterQuery);
+        void this.debouncedRefresh(this.filterQuery).catch(err => {
+          console.error('refresh failed', err);  // create a message notification ?
+        });
       }
     });
 
@@ -75,6 +75,13 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
 
     this.disposables.push(this.view.onDidChangeVisibility(e => {
       vscode.commands.executeCommand('setContext', 'symbolsTree.visible', e.visible);
+      const uri = vscode.window.activeTextEditor?.document.uri;
+
+      // TODO fix below: this.lockedUri
+      if (e.visible) {
+        if (!SymbolsProvider.locked) this.refresh('');
+        else if (SymbolsProvider.locked && uri === this.lockedUri) this.refresh('');
+      }
     }));
   }
 
@@ -96,7 +103,6 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
       SymbolsProvider.locked = true;
       await vscode.commands.executeCommand('setContext', 'symbolsTree.locked', true);
 
-      // this.lastVisitedUri = this.cache.getLastVisitedUri();
       this.lockedUri = vscode.window.activeTextEditor?.document.uri;
 
       if (this.view)
@@ -116,9 +122,10 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
     }
   }
 
-  // ignoreCache = true when called from symbolsTree.refresh (in extension.ts)
-  // public async refresh(filterQuery: (keyof SymMap)[] | string, ignoreCache = false) {
+
   public async refresh(filterQuery: string[] | string, ignoreCache = false) {
+
+    // this.debouncedRefresh.cancel?.();  // kill any pending refreshes if change editor
 
     this.filterQuery = filterQuery;
     this.view!.message = undefined;
@@ -127,20 +134,16 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
     const uri = editor?.document.uri || this.lockedUri;
     if (!editor || !uri) return;
 
-    let thisUriCache: TreeCache | undefined;
-    if (this.cache.get(editor.document.uri))
-      thisUriCache = this.cache.get(editor.document.uri);
-
+    // Map.get() can return undefined if key not found
+    let thisUriCache: TreeCache | undefined = this.cache.get(editor.document.uri);
 
     if (!ignoreCache && !filterQuery && thisUriCache && !thisUriCache.refreshSymbols) {
 
       if (thisUriCache.symbols.length) this.tree = thisUriCache.symbols as SymbolNode[];
       else this.tree = [];
-      console.log("OLD");
       this._onDidChangeTreeData.fire();
       return;
     }
-    console.log("NEW");
 
     let docSymbols: SymbolNode[] | NodeTreeItem[];
     let treeSymbols: SymbolNode[] = [];
@@ -155,8 +158,6 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
         if (this.view) showTreeViewMessage("Found no document symbols in this editor.", this.view);
         else showQuickPickMessage("TreeView: Found no document symbols in this editor.");
 
-        // TODO: clear allTreeSymbols/filteredTreeSymbols here ?
-
         this.tree = [];
         this._onDidChangeTreeData.fire();
         return;
@@ -164,8 +165,11 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
     }
     else if (_Globals.makeTreeView) {
       // not getting .py symbols on opening vscode ExtensionHost unless 300ms
-      // increase attempts or time if not js/ts/jsx/tsx ?
-      docSymbols = await getDocumentSymbolsWithRetry(uri, 6, 300) as SymbolNode[];
+      // increase attempts or time if not js/ts/jsx/tsx ? editor.document.languageId.startsWith("javascript") or "typescript"
+      // docSymbols = await getDocumentSymbolsWithRetry(uri, 6, 300) as SymbolNode[];
+
+
+      docSymbols = await getDocumentSymbolsWithRetry(uri, [1, 2, 3, 4, 5, 6], 1000) as SymbolNode[];
       if (docSymbols?.length)
         treeSymbols = toSymbolNodesNodefromDocumentSymbols(docSymbols, uri);
       else {
@@ -179,7 +183,6 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
     }
 
     await this.attachParents(treeSymbols);
-    allTreeSymbols = structuredClone(treeSymbols);
 
     if (filterQuery.length > 0) {
       filteredTreeSymbols = await filterTree(filterQuery, treeSymbols);
@@ -200,8 +203,7 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
     }
     else {
       this.tree = treeSymbols;
-      this.cache.set(uri, {refreshSymbols: false, symbols: allTreeSymbols});
-      // this.lastVisitedUri = uri;
+      this.cache.set(uri, {refreshSymbols: false, symbols: treeSymbols});
     }
 
     this._onDidChangeTreeData.fire();
@@ -455,8 +457,10 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
 }
 
 // async function getDocumentSymbolsWithRetry(uri: vscode.Uri, attempts = 6, delayMs = 200): Promise<vscode.DocumentSymbol[] | undefined> {
-async function getDocumentSymbolsWithRetry(uri: vscode.Uri, attempts = 6, delayMs = 200): Promise<SymbolNode[] | undefined> {
-  for (let i = 0; i < attempts; i++) {
+async function getDocumentSymbolsWithRetry(uri: vscode.Uri, attempts = [1, 2, 3, 4, 5, 6], delayMs = 200): Promise<SymbolNode[] | undefined> {
+
+  for await (const attempt of attempts) {
+
     const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[] | undefined>(
       'vscode.executeDocumentSymbolProvider',
       uri
@@ -465,15 +469,35 @@ async function getDocumentSymbolsWithRetry(uri: vscode.Uri, attempts = 6, delayM
       return symbols as SymbolNode[];
     }
     // If provider returned empty array it might still be valid; still retry in case of initialization
-    await new Promise(res => setTimeout(res, delayMs * (1 + i * 0.5)));
+    await new Promise(res => setTimeout(res, delayMs * (1 + attempt * 0.5)));
   }
+
+  // for (let i = 0; i < attempts; i++) {
+  // const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[] | undefined>(
+  //   'vscode.executeDocumentSymbolProvider',
+  //   uri
+  // );
+  // if (symbols && symbols.length > 0) {
+  //   return symbols as SymbolNode[];
+  // }
+  // // If provider returned empty array it might still be valid; still retry in case of initialization
+  // await new Promise(res => setTimeout(res, delayMs * (1 + i * 0.5)));
+  // }
   return undefined;
 }
 
 // const toSymbolNodesNodefromDocumentSymbols = (ds: vscode.DocumentSymbol[], uri: vscode.Uri): SymbolNode[] =>
+
+// if (!symbol.detail.length && symbol.kind === SymbolKind.String) {
+//   const text = document.getText(symbol.range);
+//   symbol.detail = text;
+// }
+
 const toSymbolNodesNodefromDocumentSymbols = (ds: SymbolNode[], uri: vscode.Uri): SymbolNode[] =>
   ds.map(s => ({
-    name: s.name,
+    // name: s.name,
+    // name: (vscode.window.activeTextEditor && s.kind === vscode.SymbolKind.String) ? s.name + ': ' + vscode.window.activeTextEditor.document.getText(s.range) : s.name,
+    name: (vscode.window.activeTextEditor && s.kind === vscode.SymbolKind.String) ? vscode.window.activeTextEditor.document.getText(s.range) : s.name,
     detail: SymbolsProvider.kindToName(s.kind),   // e.g., 'class", 'function'
     kind: s.kind,
     range: s.range,

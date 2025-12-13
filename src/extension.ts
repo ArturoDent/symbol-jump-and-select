@@ -29,8 +29,9 @@ export async function activate(context: ExtensionContext) {
 		await commands.executeCommand('setContext', 'symbolsTree.hasSelection', false);
 		await commands.executeCommand('setContext', 'symbolsTree.collapsed', false);
 
-		// initial population
-		if (window.activeTextEditor) await symbolProvider.refresh('');
+		// initial population of TeeView, if it is visible
+		if (window.activeTextEditor && symbolView.visible) await symbolProvider.refresh('');
+
 		context.subscriptions.push(symbolView);
 		context.subscriptions.push(symbolProvider);
 	}
@@ -40,7 +41,7 @@ export async function activate(context: ExtensionContext) {
 	const showQuickPick = commands.registerCommand('symbolsTree.showQuickPick', async (args) => {
 
 		const document = window.activeTextEditor?.document;
-		if (!document) return;  // message
+		if (!document) return;  // message?
 
 		let symbols: NodePickItems | SymbolMap | undefined;
 
@@ -52,11 +53,6 @@ export async function activate(context: ExtensionContext) {
 		// default is all symbols
 
 		kbSymbols = args?.symbols || undefined;
-
-		// TODO: what is this used for? see tree.ts:110
-		// if (_Globals.lastUri !== document.uri) {
-		// 	_Globals.lastUri = document.uri;
-		// }
 
 		// if "javascript" and useTSC setting = true
 		if (_Globals.isJSTS && _Globals.useTypescriptCompiler)
@@ -130,7 +126,6 @@ export async function activate(context: ExtensionContext) {
 			const commaRE = new RegExp("\\s*,\\s*");
 
 			if (query) {
-				// if (query?.includes(' || ')) finalQuery = query.split(' || ');
 				if (query?.includes('||')) finalQuery = query.split(orRE);
 				else if (query?.includes(',')) finalQuery = query.split(commaRE);
 				else finalQuery = query;
@@ -147,7 +142,6 @@ export async function activate(context: ExtensionContext) {
 		}),
 
 		commands.registerCommand('symbolsTree.expandAll', async (node: SymbolNode) => {
-			// await commands.executeCommand('workbench.actions.treeView.symbolsTree.collapseAll');
 			await symbolProvider.expandAll();
 			await commands.executeCommand('setContext', 'symbolsTree.collapsed', false);
 		}),
@@ -226,7 +220,6 @@ export async function activate(context: ExtensionContext) {
 			const revealRange = new Range(nodeToReveal.range.start, nodeToReveal.range.end);
 			editor.revealRange(revealRange, TextEditorRevealType.InCenter);
 
-			// TODO: README: 'select: true' will DE-SELECT all previously selected TreeItems/nodes
 			// 'expand: undefined' respects the pre-existing state of the item
 			// 'expand: Number.MAX_SAFE_INTEGER'
 			await symbolView.reveal(node, {expand: undefined, focus: false, select: true});
@@ -236,10 +229,12 @@ export async function activate(context: ExtensionContext) {
 
 	context.subscriptions.push(window.onDidChangeActiveTextEditor(async (textEditor) => {
 		if (textEditor) {
+
 			_Globals.updateIsJSTS(textEditor);
-			// if (_Globals.lastUri !== textEditor.document.uri) _Globals.lastUri = textEditor.document.uri;
-			if (!SymbolsProvider.locked) {
-				await symbolProvider.refresh('');
+
+			if (symbolView.visible && !SymbolsProvider.locked) {
+				// await symbolProvider.refresh('');
+				await symbolProvider.debouncedRefresh('');  // doesn't help if rapidly switch editors?
 			}
 		}
 	}));

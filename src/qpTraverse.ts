@@ -1,6 +1,5 @@
 import {DocumentSymbol, SymbolKind, TextDocument} from 'vscode';
 import {compareRanges} from './depthMap';
-import type {SymbolMap} from './types';
 
 
 /**
@@ -9,8 +8,10 @@ import type {SymbolMap} from './types';
  * If no symbol.detail add the symbol text if the symbol is a string.
  * Useful when parent is an array and the 'name' is just 0/1/2/etc. array indices.
  */
-// export function traverseSymbols(symbols: DocumentSymbol[], symbolDepthMap: Map<DocumentSymbol, number>) {
-export function traverseSymbols(symbols: DocumentSymbol[], symbolDepthMap: SymbolMap, document: TextDocument) {
+export function traverseSymbols(symbols: DocumentSymbol[], document: TextDocument) {
+
+  const symbolDepthMap = new Map();
+
   const visit = (symbol: DocumentSymbol, depth: number) => {
     if (!symbol.detail.length && symbol.kind === SymbolKind.String) {
       const text = document.getText(symbol.range);

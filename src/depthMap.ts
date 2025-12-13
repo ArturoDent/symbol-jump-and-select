@@ -114,7 +114,6 @@ export async function filterDepthMap(arrowFunctionSymbols: DocumentSymbol[], sym
 
     // else if (has children and at least one of those is the right kind)
     if (!match && symbol.children.length) {
-      // const found = hasMatchingSymbol(isJSTS, arrowFunctionSymbols, [symbol], symMap, symMapHasFunction, isRightKind);  // predicate is isRightKind
       const found = hasMatchingSymbol(arrowFunctionSymbols, [symbol], symMap, symMapHasFunction, isRightKind);  // predicate is isRightKind
       if (found) mergedMap.set(symbol, depth);
     }
@@ -127,15 +126,12 @@ export async function filterDepthMap(arrowFunctionSymbols: DocumentSymbol[], sym
  * Returns true on first match (early exit).
  * @param predicate - isRightKind() is used here.
  */
-// function hasMatchingSymbol(isJSTS: boolean, arrowFunctions: DocumentSymbol[], symbols: DocumentSymbol[], symMap: SymMap, symMapHasFunction: boolean, predicate: Function): boolean {
 function hasMatchingSymbol(arrowFunctions: DocumentSymbol[], symbols: DocumentSymbol[], symMap: SymMap, symMapHasFunction: boolean, predicate: Function): boolean {
   for (const symbol of symbols) {
-    // if (predicate(isJSTS, symbol, symMap, symMapHasFunction)) {
     if (predicate(symbol, symMap, symMapHasFunction)) {
       return true;
     }
     if (Array.isArray(symbol.children) && symbol.children.length > 0) {
-      // if (hasMatchingSymbol(isJSTS, arrowFunctions, symbol.children, symMap, symMapHasFunction, predicate)) {
       if (hasMatchingSymbol(arrowFunctions, symbol.children, symMap, symMapHasFunction, predicate)) {
         return true;
       }
@@ -148,7 +144,6 @@ function hasMatchingSymbol(arrowFunctions: DocumentSymbol[], symbols: DocumentSy
  * Replace arrow function variables with SymbolKind.Function.
  * Include all other variables in the map returned.  Unfiltered.
  */
-// export async function unfilteredDepthMap(isJSTS: boolean, arrowFunctionSymbols: DocumentSymbol[], symbolDepthMap: SymbolMap): Promise<SymbolMap> {
 export async function unfilteredDepthMap(arrowFunctionSymbols: DocumentSymbol[], symbolDepthMap: SymbolMap): Promise<SymbolMap> {
 
   let mergedMap = new Map();

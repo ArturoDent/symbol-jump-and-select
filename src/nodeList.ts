@@ -1,7 +1,6 @@
 import ts from "typescript";
 import {TextDocument, Range, TreeItem, TreeItemCollapsibleState} from "vscode";
 import type {NodePickItem, NodePickItems, NodeTreeItem, SymbolNode} from './types';
-// import * as Globals from './myGlobals';
 import _Globals from './myGlobals';
 
 
@@ -11,7 +10,7 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
     doc.fileName,
     doc.getText(),
     ts.ScriptTarget.Latest,
-    // the below IS USED and important, although it is in a comment
+    // the below IS USED and important, although it is in a comment !!
     /* setParentNodes */ true
   );
 
@@ -51,14 +50,7 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
     if (visited.has(node)) return;
     visited.add(node);
 
-    // node.parent === 'undefined' for SourceFileObject itself
-    // depth === 0 ? for SourceFileObject/topLevel nodes ?
     // console.log(ts.isSourceFile(node));  // true for SourceFile
-    // console.log(ts.SyntaxKind.SourceFile);  // 308= SourceFile
-    // console.log(ts.isSourceFile(node));    // true for SourceFile
-    // if (node.parent) console.log('parent: ' + ts.isSourceFile(node.parent));
-
-    // if (ts.isSourceFile(node) || (node.parent && ts.isSourceFile(node.parent))) console.log(node);
 
     const nameFrom = (id: ts.Identifier | ts.StringLiteral | ts.NumericLiteral) => id.text;
     const fullName = (name: string) => [...container, name].join(".");
@@ -102,7 +94,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
 
       out.push({
         name: fullName(name),
-        // kind: "function",
         kind: "anonymous",
         depth,
         pos: node.getStart(sourceFile),
@@ -144,14 +135,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
       }
     }
 
-    // else if (ts.isCaseBlock(node)) {
-    //   if (node.clauses) {
-    //     node.clauses.forEach(clause =>
-    //       visitWithDepth(clause, depth + 1, [...container, "switch"])
-    //     );
-    //   }
-    // }
-
     else if (ts.isCaseClause(node)) {
       const text = node.expression.getText(sourceFile);
 
@@ -164,7 +147,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
         range: new Range(doc.positionAt(node.getStart(sourceFile)), doc.positionAt(node.getEnd())),
         selectionRange: new Range(doc.positionAt(node.expression.getStart(sourceFile)), doc.positionAt(node.expression.getStart(sourceFile))),
         label: `case: ${text}`,
-        // detail: "switch case",
         detail: "case",
         parent: depth ? node.parent : undefined
       });
@@ -174,8 +156,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
     }
 
     else if (ts.isDefaultClause(node)) {
-      // const text = node.expression.getText(sourceFile);
-
       out.push({
         name: "switch case default",
         kind: "case",
@@ -185,7 +165,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
         range: new Range(doc.positionAt(node.getStart(sourceFile)), doc.positionAt(node.getEnd())),
         selectionRange: new Range(doc.positionAt(node.getStart(sourceFile)), doc.positionAt(node.getStart(sourceFile))),
         label: `default: `,
-        // detail: "switch case",
         detail: "case",
         parent: depth ? node.parent : undefined
       });
@@ -244,7 +223,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
             range: new Range(doc.positionAt(member.getStart(sourceFile)), doc.positionAt(member.getEnd())),
             selectionRange: new Range(doc.positionAt(member.getStart(sourceFile)), doc.positionAt(member.getStart(sourceFile))),
             label: `constructor ( ${asString} )`,
-            // detail: `${name} class constructor`,
             detail: `${name} constructor`,
             parent: depth ? node.parent : undefined
           });
@@ -267,7 +245,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
             range: new Range(doc.positionAt(member.getStart(sourceFile)), doc.positionAt(member.getEnd())),
             selectionRange: new Range(doc.positionAt(member.name.getStart(sourceFile)), doc.positionAt(member.name.getStart(sourceFile))),
             label: `${methodName} ( ${asString} )`,
-            // detail: `${name} class method`,
             detail: `${name} method`,
             parent: depth ? node.parent : undefined
           });
@@ -290,7 +267,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
             range: new Range(doc.positionAt(member.getStart(sourceFile)), doc.positionAt(member.getEnd())),
             selectionRange: new Range(doc.positionAt(member.name.getStart(sourceFile)), doc.positionAt(member.name.getEnd())),
             label: `${propName} = ${initText}`,
-            // detail: `${name} class property`,
             detail: `${name} property`,
             parent: depth ? node.parent : undefined
           });
@@ -334,7 +310,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
               pos: left.getStart(sourceFile),
               range: new Range(leftStart, leftEnd),
 
-              // should this be left
               selectionRange: (left as ts.PropertyAccessExpression).name ?
                 new Range(doc.positionAt((left as ts.PropertyAccessExpression).name.getStart(sourceFile)), doc.positionAt((left as ts.PropertyAccessExpression).name.getStart(sourceFile)))
                 : new Range(doc.positionAt((left as ts.PropertyAccessExpression).getStart(sourceFile)), doc.positionAt((left as ts.PropertyAccessExpression).getStart(sourceFile))),
@@ -356,7 +331,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
 
           out.push({
             name: `${fullName} (anonymous)`,
-            // kind: "function",
             kind: "anonymous",
             depth: depth + chain.length,
             pos: right.getStart(sourceFile),
@@ -428,7 +402,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
         depth: depth + 1,
         pos: left.getStart(sourceFile),
 
-        // check range/selectionRange
         range: new Range(leftStart, leftEnd),
         selectionRange: (left as ts.PropertyAccessExpression).name ?
           new Range(doc.positionAt((left as ts.PropertyAccessExpression).name.getStart(sourceFile)), doc.positionAt((left as ts.PropertyAccessExpression).name.getStart(sourceFile)))
@@ -442,7 +415,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
 
     // Variable statements
     else if (ts.isVariableStatement(node)) {
-      // node.forEachChild(child => recursiveFunction) ??
       node.declarationList.declarations.forEach(decl =>
         visitWithDepth(decl, depth, container)
       );
@@ -463,10 +435,8 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
       const init = node.initializer;
 
       if (ts.isArrowFunction(init as ts.Node)) {
-        // kind = "function";
         kind = "arrow";
         label = `${name} ( ${getParameterDetails(sourceFile, (init as ts.FunctionExpression).parameters, doc).asString} )`;
-        // label = `${name} ( ${init?.getText(sourceFile)} )`; // works but not as nice as getParameterDetails()
         detail = "variable ➜ arrow function";
       }
       else if (ts.isFunctionExpression(init as ts.Node)) {
@@ -480,7 +450,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
         detail = "variable ➜ object property";
       }
       else if (ts.isCallExpression(init as ts.Node) && ts.isPropertyAccessExpression((init as ts.CallExpression).expression)) {
-        // kind = "method";
         kind = "call";
 
         label = `${name} = ${init?.getText(sourceFile)}`;
@@ -499,7 +468,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
       }
 
       out.push({
-        // name: fullName(name),
         name,
         kind,
         depth,
@@ -511,12 +479,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
         detail,
         parent: depth ? node.parent : undefined
       });
-
-      // if ((isArrowFunc || isFuncExpr) && ts.isBlock(init?.body)) {
-      //   init.body.statements.forEach(stmt =>
-      //     visitWithDepth(stmt, depth + 2, [...container, name])
-      //   );
-      // }
 
       if (
         init &&
@@ -544,7 +506,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
 
           const isMethod = ts.isMethodDeclaration(prop);
           const isFunc = ts.isArrowFunction(init as ts.Node) || ts.isFunctionExpression(init as ts.Node);
-          // const isFunc = ts.isFunctionLike(init);  // this doesn't work everywhere
           const isObj = ts.isObjectLiteralExpression(init as ts.Node);  // nested objects
           const isVar = !isFunc && !isObj && !isMethod;
 
@@ -552,8 +513,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
           if (isVar) initText = init?.getText(sourceFile);
           else if (isFunc) paramsText = getParameterDetails(sourceFile, (init as ts.FunctionExpression).parameters, doc).asString;
           else if (isMethod) paramsText = getParameterDetails(sourceFile, prop.parameters, doc).asString;
-
-          // else if (isObj) objText = "";
 
           out.push({
             name: fullName(name),
@@ -608,20 +567,17 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
         propName = expr.getText(sourceFile);
         name = fullName(propName);
         label = `${propName} ( ${asString} )`;
-        // detail = `${expr.expression.getText(sourceFile)} method function call`;
         detail = `${expr.expression.getText(sourceFile)} method call`;
       }
       else if (ts.isIdentifier(expr)) {   // simple("howdy")
         name = fullName(expr.text);
         label = `${expr.text} ( ${asString} )`;
-        // detail = 'function call';
         detail = 'call';
       }
 
       if (ts.isIdentifier(expr) || ts.isPropertyAccessExpression(expr)) {  // rex.speak() not caught
         out.push({
           name,
-          // kind: "function",
           kind: "call",
           depth,
           pos: expr.getStart(sourceFile),
@@ -641,26 +597,19 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
     else if (ts.isReturnStatement(node)) {
       const path = getAllEnclosingFunctionNames(node);
 
-      // this works for now, getTokenAtPosition() is part of the internal api, as any fixes an error
-      // let token = (ts as any).getTokenAtPosition(sourceFile, node.end - 1);
-      // token === ts.SyntaxKind.SemicolonToken === 27;
-      // const isSemicolon = !!token && token.kind === ts.SyntaxKind.SemicolonToken;
-
       out.push({
         name: "return",
-        // kind: "function",
         kind: "return",
         depth,
         pos: node.getStart(sourceFile),
         // end: expr.getEnd(),
 
         range: new Range(doc.positionAt(node.getStart(sourceFile)), doc.positionAt(node.getEnd())),
-        // selectionRange: new Range(doc.positionAt(node.getStart(sourceFile)), doc.positionAt(node.getStart(sourceFile))),
         selectionRange: (node.expression) ? new Range(doc.positionAt(node.expression.getStart(sourceFile)), doc.positionAt(node.expression.getEnd()))
           : new Range(doc.positionAt(node.getStart(sourceFile)), doc.positionAt(node.getEnd())),
 
         label: `${node.getText()}`,
-        detail: path ? `${path.join(' > ')} > return` : "return",   // TODO: identify method/function/case/etc. returns
+        detail: path ? `${path.join(' > ')} > return` : "return",
         parent: depth ? node.parent : undefined
       });
 
@@ -674,42 +623,12 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
 
   visitWithDepth(sourceFile, 0, container);
 
-  const sorted = out.sort((a, b) => a.pos - b.pos);
-  // const withChildren = await buildChildrenNodes(sorted);
-
-  // const tree = buildNodeTree(sorted);
-
-  // return out.sort((a, b) => a.pos - b.pos);
-  return sorted;
+  return out.sort((a, b) => a.pos - b.pos);
 }
 
-// export async function buildChildrenNodes(nodes: NodePickItems): Promise<NodePickItems> {
-
-//   const out: NodePickItems = [];
-
-//   function visitNodeForChildren(currentNode: NodePickItem, nodes: NodePickItems) {
-
-//     if (nodes.length > 0) {
-
-//       if (currentNode.depth === 0) {
-
-//         currentNode.children.push(visitNodeForChildren(nodes.shift() as NodePickItem, nodes));
-//         out.push(currentNode);
-//       }
-
-//       else {
-//         currentNode.children.push(visitNodeForChildren(nodes.shift() as NodePickItem, nodes));
-//       }
-//       return currentNode;
-//     }
-//     visitNodeForChildren(nodes.shift() as NodePickItem, nodes);
-//     return out;
-//   }
 
 // use this returnType in getArrowFunctionParametersRange()
 function getParameterDetails(sourceFile: ts.SourceFile, params: ts.NodeArray<ts.ParameterDeclaration | ts.Expression>, doc: TextDocument): {selectionRange: Range | undefined; asString: string;} {
-  // const returnType = expr.type ? expr.type.getText() : 'unknown';
-  // return `( ${params} ) => ${returnType}`;
 
   let start, end;
   const asString = params.map(p => p.getText(sourceFile)).join(', ');
@@ -808,7 +727,6 @@ export async function buildNodeTree(items: NodePickItem[]): Promise<NodeTreeItem
     const next = items[index + 1];
     const hasChild = next?.depth === item.depth + 1;
 
-    // TODO TEST
     const treeItem = new TreeItem(
       // item.label,
       `${item.label} • ${item.detail}`,
@@ -863,14 +781,11 @@ export async function buildNodeTree(items: NodePickItem[]): Promise<NodeTreeItem
 // }
 
 
-// function nodeMatches(node: SymbolNode, query: (keyof SymMap)[] | string): boolean {
 function nodeMatches(node: SymbolNode, query: string[] | string): boolean {
   if (typeof query === 'string') {
-    // return node.name.toString().toLocaleLowerCase().includes(query) || !!node.detail?.toLocaleLowerCase().includes(query);
     return node.name.toString().includes(query) || !!node.detail?.includes(query);
   }
   else {
-    // return query.some(q => node.name.toString().toLocaleLowerCase().includes(q) || !!node.detail?.toLocaleLowerCase().includes(q));
     return query.some(q => node.name.toString().includes(q) || !!node.detail?.includes(q));
   }
 }
@@ -880,7 +795,6 @@ function nodeMatches(node: SymbolNode, query: string[] | string): boolean {
  * Returns null if neither node nor any descendant matches.
  * Returns the parent nodes, NOT just matching child nodes.
  */
-// function pruneNode(node: SymbolNode, query: (keyof SymMap)[] | string): SymbolNode | null {
 function pruneNode(node: SymbolNode, query: string[] | string): SymbolNode | null {
   const matchesSelf = nodeMatches(node, query);
 
@@ -913,7 +827,6 @@ function pruneNode(node: SymbolNode, query: string[] | string): SymbolNode | nul
   return null;
 }
 
-// export async function filterTree(query: (keyof SymMap)[] | string, items: SymbolNode[]): Promise<SymbolNode[]> {
 export async function filterTree(query: string[] | string, items: SymbolNode[]): Promise<SymbolNode[]> {
 
   const out: SymbolNode[] = [];

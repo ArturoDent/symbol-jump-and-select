@@ -17,8 +17,6 @@ export default class _Globals {
   public static collapseTreeViewItems: string = "collapseOnOpen";
 
   // globals
-  // public static lastUri: Uri | undefined = window.activeTextEditor?.document.uri;
-  // public static refreshSymbols: boolean = true;
   public static isJSTS: boolean = false;
   public static context: ExtensionContext;
 
@@ -45,9 +43,6 @@ export default class _Globals {
         this.useTypescriptCompiler = updated.get<boolean>('useTypescriptCompiler', this.useTypescriptCompiler);
         this.makeTreeView = updated.get<boolean>('makeTreeView', this.makeTreeView);
         this.collapseTreeViewItems = updated.get<string>('collapseTreeViewItems', this.collapseTreeViewItems);
-        // TODO: refresh tree if makeTreeView changed and is true
-        // if useTypescriptCompiler changed
-        // if collapseTreeViewItems changed
       }
     });
     if (context) context.subscriptions.push(disposable);
