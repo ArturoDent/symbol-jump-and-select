@@ -174,3 +174,85 @@
 //   return undefined;
 // }
 
+      // if (button === filterButton) {
+      //   if (this.symbolDepthMap.size) {
+      //     if (this.filterState === 'filtered') {
+      //       if (!this.allDepthMap.size)
+      //         this.allDepthMap = await unfilteredDepthMap(this.arrowFunctionSymbols, this.symbolDepthMap);
+      //       if (this.allDepthMap.size) {
+      //         await this.render(this.allDepthMap);
+      //         this.filterState = 'not filtered';
+      //       }
+      //     }
+      //     else {
+      //       if (!this.filteredDepthMap.size)
+      //         this.filteredDepthMap = await filterDepthMap(this.arrowFunctionSymbols, this.symbolDepthMap, this.kbSymbolsSaved);
+      //       if (this.filteredDepthMap.size) {
+      //         await this.render(this.filteredDepthMap);
+      //         this.filterState = 'filtered';
+      //       }
+      //     }
+      //   }
+      //   else if (this.allDocNodes.length) {
+      //     if (this.filterState === 'filtered') {
+      //       if (!this.allDocNodes.length)
+      //         this.allDocNodes = await collectSymbolItemsFromSource(document);
+      //       if (this.allDocNodes.length) {
+      //         await this.render(this.allDocNodes);
+      //         this.filterState = 'not filtered';
+      //       }
+      //     }
+      //     else {
+      //       if (!this.filteredDocNodes.length)
+      //         this.filteredDocNodes = await filterDocNodes(this.kbSymbolsSaved, this.allDocNodes);
+      //       if (this.filteredDocNodes.length) {
+      //         await this.render(this.filteredDocNodes);
+      //         this.filterState = 'filtered';
+      //       }
+      //     }
+      //   }
+      // }
+      
+        // this needs getParent(element) to work
+  public async expandAll(): Promise<void> {
+    if (this.view && this.tree.length) {
+      // let middleSymbol = await this.getSymbolAtCenterOfViewport();
+      // let middleSymbolOuterParent = this.tree[0];
+
+      // if (middleSymbol) {
+      //   for (const topNode of this.tree) {
+      //     if (topNode.range.contains(middleSymbol.range)) middleSymbolOuterParent = topNode;
+      //   }
+
+      //   for (const node of this.tree) {
+      //     if (node === middleSymbolOuterParent) continue;
+      //     // Number.MAX_SAFE_INTEGER ensures full expansion
+      //     try {
+      //       await this.view.reveal(node, {expand: Number.MAX_SAFE_INTEGER, focus: false, select: false});
+      //     } catch (e) {
+      //       // ignore reveal failures when tree not visible
+      //     }
+      //   }
+
+      // this.tree.reverse() would mutate the original array, slice returns a copy of the original
+      const reversed = this.tree.slice().reverse(); // or [...arr].reverse()
+
+      // expand from the botton up, so last one expanded is the first node
+      for (const node of reversed) {
+        // Number.MAX_SAFE_INTEGER ensures full expansion
+        try {
+          await this.view.reveal(node, {expand: Number.MAX_SAFE_INTEGER, focus: false, select: false});
+        } catch (e) {
+          // ignore reveal failures when tree not visible
+        }
+      }
+
+      // if (middleSymbol) {
+      //   await this.view.reveal(middleSymbolOuterParent, {expand: Number.MAX_SAFE_INTEGER, focus: false, select: false});
+      //   await this.view.reveal(middleSymbol, {expand: Number.MAX_SAFE_INTEGER, focus: true, select: false});
+      // }
+      // else await this.view.reveal(this.tree[0], {expand: Number.MAX_SAFE_INTEGER, focus: true, select: false});
+
+      // await this.view.reveal(this.tree[0], {expand: Number.MAX_SAFE_INTEGER, focus: true, select: false});
+    }
+  }

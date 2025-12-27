@@ -1,8 +1,11 @@
 import {window, commands, Uri, TreeView} from 'vscode';
 import type {SymbolNode} from './types';
-import _Globals from './myGlobals';
+import * as Globals from './myGlobals';
+
 
 export function showQuickPickMessage(message: string): void {
+
+  const _Globals = Globals.default;
 
   const buttons = ['Readme Symbols', 'Close'];  // two buttons
 
@@ -25,7 +28,7 @@ export function showTreeViewMessage(message: string, view: TreeView<SymbolNode>)
   view.message = message;
 }
 
-export function showCommandMessage(message: string, view?: TreeView<SymbolNode>): void {
+export function showSimpleMessage(message: string): void {
   const buttons = ['Close'];
 
   window

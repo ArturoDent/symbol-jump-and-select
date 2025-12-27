@@ -11,7 +11,7 @@ export default class _Globals {
 
   private static readonly section = 'symbolsTree';
 
-  // settings
+  // settings configs
   public static useTypescriptCompiler: boolean = false;
   public static makeTreeView: boolean = true;
   public static collapseTreeViewItems: string = "collapseOnOpen";
@@ -20,8 +20,7 @@ export default class _Globals {
   public static isJSTS: boolean = false;
   public static context: ExtensionContext;
 
-  public constructor() {}  // private cannot be called from outside
-
+  public constructor() {}
 
   // called once from activate() ---- await _Globals.init(context);
   public static async init(context: ExtensionContext): Promise<void> {
@@ -39,10 +38,10 @@ export default class _Globals {
 
     const disposable = workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration(this.section)) {
-        const updated = workspace.getConfiguration(this.section);
-        this.useTypescriptCompiler = updated.get<boolean>('useTypescriptCompiler', this.useTypescriptCompiler);
-        this.makeTreeView = updated.get<boolean>('makeTreeView', this.makeTreeView);
-        this.collapseTreeViewItems = updated.get<string>('collapseTreeViewItems', this.collapseTreeViewItems);
+        const config = workspace.getConfiguration(this.section);
+        this.useTypescriptCompiler = config.get<boolean>('useTypescriptCompiler', this.useTypescriptCompiler);
+        this.makeTreeView = config.get<boolean>('makeTreeView', this.makeTreeView);
+        this.collapseTreeViewItems = config.get<string>('collapseTreeViewItems', this.collapseTreeViewItems);
       }
     });
     if (context) context.subscriptions.push(disposable);

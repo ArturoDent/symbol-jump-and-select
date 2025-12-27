@@ -27,12 +27,8 @@ export async function makeSymbolsFromFunctionExpressions(document: TextDocument)
     if (symbol) {
       const type = checker.getTypeOfSymbolAtLocation(symbol, node);
       const signatures = type.getCallSignatures();
-      // TODO: move below? into both places where it is needed
       for (const sig of signatures) {
         parameters = sig.getParameters();
-        // for (const param of parameters) {  // not used
-        //   const paramType = checker.getTypeOfSymbolAtLocation(param, param.valueDeclaration!);
-        // }
       }
     }
 
@@ -47,7 +43,7 @@ export async function makeSymbolsFromFunctionExpressions(document: TextDocument)
 
         const end = node.declarationList.declarations[0].name?.getEnd();
 
-        // make a DocumentSymbol: name
+        // make a DocumentSymbol
         const newSymbol = {
           name: String(node.declarationList.declarations[0].name?.getText(sourceFile)),
           kind: SymbolKind.Function,
@@ -65,7 +61,6 @@ export async function makeSymbolsFromFunctionExpressions(document: TextDocument)
     // e.g., const square1 = x => x * x;  initializer is x => x * x
     // any space/jsdoc, etc. before the name (square1) is trivia
 
-    // or ts.isFunctionExpression()
     else if (ts.isVariableDeclaration(node) && !!node.initializer && ts.isArrowFunction(node.initializer)) {
       if (document) {
 
@@ -81,7 +76,6 @@ export async function makeSymbolsFromFunctionExpressions(document: TextDocument)
         const startPos = document.positionAt(node.pos).translate({characterDelta: triviaWidth});
         const fullRange = new Range(startPos, document.positionAt(node.end));
 
-        // make a DocumentSymbol: name
         const newSymbol = {
           name: String(node.name.getText(sourceFile)),
           kind: SymbolKind.Function,

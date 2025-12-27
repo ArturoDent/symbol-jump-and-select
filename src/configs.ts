@@ -10,6 +10,4 @@ export async function getUseTscSetting() {
 export async function getTreeViewSetting() {
   const config = workspace.getConfiguration(EXTENSION_NAME);
   return await config.get('makeTreeView');
-  // const makeTreeView = await config.get('makeTreeView');
-  // return (typeof makeTreeView === 'boolean') ? makeTreeView : true;
 }

@@ -46,36 +46,6 @@ export function compareRangesReverse(symbol1: DocumentSymbol, symbol2: DocumentS
 
 
 /**
- * Not currently used.
- * Only used in dedupeSymbols. 
- * Compare 2 DocumentSymbols to see if they are the same name, range and selectionRange
- */
-// function symbolsAreEqual(symA: DocumentSymbol, symB: DocumentSymbol): boolean {
-//   return (
-//     symA.name === symB.name &&
-//     symA.range.isEqual(symB.range) &&
-//     symA.selectionRange.isEqual(symB.selectionRange)
-//   );
-// };
-
-
-/**
- * Not currently used.
- */
-// export function dedupeSymbols(symbols: DocumentSymbol[]): DocumentSymbol[] {
-
-//   const unique: DocumentSymbol[] = [];
-
-//   for (const sym of symbols) {
-//     if (!unique.some(existing => symbolsAreEqual(existing, sym))) {
-//       unique.push(sym);
-//     }
-//   }
-//   return unique;
-// };
-
-
-/**
  * Replace arrow function variables with SymbolKind.Function.
  * Filter for keybinding "symbols".
  * Don't include other variables UNLESS there is some child of the right kind.

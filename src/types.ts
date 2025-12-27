@@ -17,9 +17,10 @@ export interface SymbolPickItem extends QuickPickItem {
 
 export type SymbolMap = Map<DocumentSymbol, number>;
 
+// extend QuickPickItem?
 export interface NodePickItem {
   name: string;
-  kind: string;
+  kind: string;   // to extend, this is the wrong type
   depth: number;
   pos: number;
   // end: number;
@@ -48,10 +49,23 @@ export interface SymbolNode extends DocumentSymbol {
   parent?: SymbolNode;
 };
 
+export type ReturnSymbols = {
+  allSymbols: NodePickItems | SymbolMap;
+  filteredSymbols: NodePickItems | SymbolMap;
+};
 
+export const TreeCache = {
+  UseFilter: 0,
+  UseAllNodesIgnoreFilter: 1,
+  IgnoreFilter: 2,
+  IgnoreAllNodes: 3,
+  UseFilterAndAllNodes: 4,
+  IgnoreFilterAndAllNodes: 5
+};
+
+export type CacheUse = typeof TreeCache[keyof typeof TreeCache];
 
 // vscode.Symbol.Kind's
-
 // File: 0;
 // Module: 1;
 // Namespace: 2;

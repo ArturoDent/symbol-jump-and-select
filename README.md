@@ -21,17 +21,17 @@ Notice the icons across the top:
 
 ##### <img src="./icons/lock.jpg" width="16" height="16" alt="Symbols TreeView lock icon"/> : `lock` - prevent the TreeView from updating to the new file when you switch editors.  Press <img src="./icons/unlock.jpg" width="16" height="16" alt="Symbols TreeView unlock icon"/> to unlock.
 
-##### <img src="./icons/filter.jpg" width="16" height="16" alt="Symbols Tree filter icon"/> : `filter` -  open an input box for you to enter search/filter terms to narrow the TreeView.
+##### <img src="./icons/filter.jpg" width="16" height="16" alt="Symbols Tree filter icon"/> : `filter` -  open an input box for search/filter terms to narrow the TreeView.
 
 ##### <img src="./icons/refresh.jpg" width="16" height="16" alt="Symbols Tree refresh icon"/> : `refresh` - return the TreeView to the full unfiltered view.
 
 ##### <img src="./icons/square-minus.jpg" width="16" height="16" alt="Symbols Tree collapseAll icon"/> : `collapse all` nodes in the TreeView. Press <img src="./icons/square-plus.jpg" width="16" height="16" alt="Symbols TreeView expandAll icon"/> to expand all.
 
-* Note: refresh <img src="./icons/refresh.jpg" width="16" height="16" alt="Symbols Tree refresh icon"/> will return to the unfiltered state ***AND*** expand all nodes (if the setting `Symbols Tree: Collapse Tree View Items` is set to `expandOnOpen`) ***or*** collapse all nodes (if the same setting is set to `collapseOnOpen`).
+* Note: refresh <img src="./icons/refresh.jpg" width="16" height="16" alt="Symbols Tree refresh icon"/> will return to the unfiltered state ***AND*** expand all nodes (if the setting `Symbols Tree: Collapse Tree View Items` is set to `expandOnOpen`) ***or*** collapse all nodes (if the same setting is set to `collapseOnOpen`).  Refresh will also `unlock` any existing locked TreeView.  
 
 ----------
 
-Here are two examples of keybindings:
+Here are examples of keybindings:
 
 ```jsonc
 // open a QuickPick showing only these Document Symbols
@@ -50,9 +50,9 @@ Here are two examples of keybindings:
 // show or filter only class symbols in the TreeView
 {
   "key": "alt+f",       // whatever keybinding you want
-  "command": "symbolsTree.applyFilters",
-  "args": [
-    "class"
+  "command": "symbolsTree.applyFilter",
+  "args": [   // must have an "args" option
+    "class"   // you can use document symbols or any other text !
   ],
   "when": "view.symbolsTree.visible"
 },
@@ -77,16 +77,6 @@ You can filter by any combination of the following symbols (any other text will 
 * string or array, optional, default = all symbols below
 
 Here are the values that can be used in the `symbols` option in a keybinding:
-
-<!-- |              | symbols       |               |               |
-|--------------|---------------|---------------|---------------|
-| class        | method        | function      | property      |
-| file         | module        | event         | operator      |
-| namespace    | package       | struct        | typeParameter |
-| variable     | field         | constant      | null          |
-| enum         | interface     | constructor   | enumMember    |
-| string       | number        | boolean       |               |
-| array        | object        | key           |               | -->
 
 <table style="border-collapse:collapse;border:1px solid #000;width:auto;">
   <thead>
@@ -165,7 +155,9 @@ Here are the values that can be used in the `symbols` option in a keybinding:
 
 `call/return/arrow/anonymous/declaration/switch/case` are only available if you are using the typescript compiler (`tsc`).
 
-If you omit the `symbols` option in your keybinding (or it is just an empty array), or if you invoke the command `symbol-jump-and-select.showQuickPick` from the Command Palette, the default is **all** of the symbols listed above.  For any particular language or file type, many of the symbols may not be used.  
+If you omit the `symbols` option in your keybinding (or it is just an empty array), or if you invoke the command `symbolsTree.showQuickPick` from the Command Palette, the default is **all** of the symbols listed above.  For any particular language or file type, many of the symbols may not be used.  
+
+------------  
 
 ### QuickPick
 
@@ -176,7 +168,11 @@ If you omit the `symbols` option in your keybinding (or it is just an empty arra
 Symbol Jump/Select: Open a quickpick of filtered symbols.
 ```
 
-In the title bar of the QuickPick there is a **filter**  icon ( <img src="./icons/filter.jpg" width="16" height="16" alt="filter icon"/> ) on the top right.  Toggling that icon will negate any filtering of the symbols (from your keybinding) and ALL symbols in the file will be shown.  Toggling again will re-filter by your `symbols` in the keybinding, if any.
+In the title bar of the QuickPick there is a **filter** icon ( <img src="./icons/filter.jpg" width="16" height="16" alt="filter icon"/> ) on the top right.  Toggling that icon will negate any filtering of the symbols (from your keybinding) and ALL symbols in the file will be shown.  Toggling again will re-filter by your `symbols` in the keybinding, if any.
+
+There is also a **refresh** icon ( <img src="./icons/refresh.jpg" width="16" height="16" alt="refresh icon"/> ) on the top right.  Clicking that icon will remove any filter from the QuickPick, including text in the Input area, to show all symbols in the document.
+
+* Use the **refresh** icon ( <img src="./icons/refresh.jpg" width="16" height="16" alt="refresh icon"/> ) when the QuickPick is open and you have made changes to the editor's contents.  The QuickPick will be updated (as well as any filters removed to show all symbols).
 
 Each symbol that is shown will have a **selection** icon ( <img src="./icons/selection.jpg" width="16" height="16" alt="selection icon"/> ) on the right when that line is highlighted or hovered.  Clicking that selection icon will make the cursor jump to that symbol and select it.  The entire symbol (and its children, if any) will be selected.  
 
@@ -186,7 +182,14 @@ Children are shown indented by └─'s to their proper depth.
 
 The QuickPick can also be filtered by the symbolKind (class, method, function,etc.) in the Input Box at the top.  This will filter by the symbols' names and symbolKinds.  So if you opened a quickPick of all symbols, you could then type 'class' to see only classes in the file listed or type 'function' or 'constructor', etc. to see only those symbolKind of symbols in the file.  
 
-If you have already filtered by symbols in the keybinding, you can only search in the QuickPick for those shown symbol names and Kinds. But you could toggle the <img src="./icons/filter.jpg" width="16" height="16" alt="filter icon"/> button at the top right and then search in the QuickInput input field through all symbols in the file.  
+If you have already filtered by symbols in the keybinding, you can only search in the QuickPick for those shown symbol names and Kinds. But you could toggle the <img src="./icons/filter.jpg" width="16" height="16" alt="filter icon"/> button at the top right and then search in the QuickPick input field through all symbols in the file.  
+
+* `symbolsTree.refreshQuickPick`
+
+```plaintext
+// in the Command Palette:
+Symbol Jump/Select: Refresh to show all symbols
+```
 
 ### Symbols Tree: a TreeView
 
@@ -211,16 +214,11 @@ You can enter any text such as symbol names, like `class`, evn though that may n
 
 You can also input multiple terms which will be handles like an `or` statement.  So you use "myFunction || class" to find both of those.  You can also use "myFunction, someOtherName" to get both of those.  You can chain as many terms as you like in the input box.  
 
-```plainText
-// handle "class || rex"  => ["class", "rex"] // if query contains "||" split on " || "
-// handle "class,rex" treat as an ||  TODO
-```
-
  -----------------
 
- Spaces within your filter query (in the QuickInput box) are respected, they are NOT removed.
+ Spaces within your filter query (in the QuickPick input box) are respected, they are NOT removed.
 
-* **symbolsTree.refresh**  : <img src="./icons/refresh.jpg" width="16" height="16" alt="refresh icon"/>  
+* **symbolsTree.refreshTree**  : <img src="./icons/refresh.jpg" width="16" height="16" alt="refresh icon"/>  
  In the Command Palette: ``` Symbols Tree: Refresh ```
 
  -----------------
@@ -248,16 +246,16 @@ The following command is triggered by clicking on the **selection** icon ( <img 
 
 The following command can **ONLY** be triggered by a keybinding:
 
-* **symbolsTree.applyFilters**  
+* **symbolsTree.applyFilter**  
  In the Command Palette: ``` Symbols Tree: Apply a filter from a keybinding  ```
 
 ```jsonc
 {
   "key": "alt+a",              // whatever you want
-  "command": "symbolsTree.applyFilters",
+  "command": "symbolsTree.applyFilter",
   "args": [
     "class",
-    // etc.
+    // etc.     // function names, etc. Anything that may appear in the TreeView
   ],
   "when": "symbolsTree.visible"
 }
@@ -270,7 +268,7 @@ These are the default keybindings that are set by the extension, but they can be
 ```jsonc
 {
   "key": "alt+f",
-  "command": "symbolsTree.applyFilters",
+  "command": "symbolsTree.applyFilter",
   "when": "symbolsTree.visible"
 },
 {
@@ -285,7 +283,7 @@ These are the default keybindings that are set by the extension, but they can be
 },
 {
   "key": "alt+r",
-  "command": "symbolsTree.refresh",
+  "command": "symbolsTree.refreshTree",
   "when": "symbolsTree.visible"
 },
 {
@@ -380,7 +378,7 @@ So this extension will determine if those 'variables' are in fact 'functions' an
 
 ## Known Issues
 
-1. Switching rapidly between editors may result in the TreeView getting out of sync and not showing the correct TreeVew.  Cancelling the TreeView debounced refresh doesn't work. Refreshing the TreevIew with the <img src="./icons/refresh.jpg" width="16" height="16" alt="Symbols Tree refresh icon"/> should fix that.  
+1. Switching rapidly between editors may result in the TreeView getting out of sync and not showing the correct TreeVew.  Cancelling the TreeView debounced refresh doesn't work. Refreshing the TreeView with the <img src="./icons/refresh.jpg" width="16" height="16" alt="Symbols Tree refresh icon"/> should fix that.  
 2. Starting vscode (or re-loading it) with a .json file as the current editor may result in only some of the json file's symbols being shown in the TreeView (it only seems to happen to me with launch.json and not other json files).  
 
 ## TODO
@@ -394,7 +392,6 @@ So this extension will determine if those 'variables' are in fact 'functions' an
 * Keep an eye on [TreeItem markdown labels](https://github.com/microsoft/vscode/blob/main/src/vscode-dts/vscode.proposed.treeItemMarkdownLabel.d.ts).
 * Implement successive searches (using previous results)?
 * Clickable parameters?
-* `showQuickPick` filter by other editor text?
 
 ## Release Notes
 

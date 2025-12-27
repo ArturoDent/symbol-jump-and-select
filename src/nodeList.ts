@@ -1,7 +1,7 @@
 import ts from "typescript";
 import {TextDocument, Range, TreeItem, TreeItemCollapsibleState} from "vscode";
 import type {NodePickItem, NodePickItems, NodeTreeItem, SymbolNode} from './types';
-import _Globals from './myGlobals';
+import * as Globals from './myGlobals';
 
 
 export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<NodePickItems> {
@@ -50,16 +50,10 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
     if (visited.has(node)) return;
     visited.add(node);
 
-    // console.log(ts.isSourceFile(node));  // true for SourceFile
+    // ts.isSourceFile(node)  // true for SourceFile
 
     const nameFrom = (id: ts.Identifier | ts.StringLiteral | ts.NumericLiteral) => id.text;
     const fullName = (name: string) => [...container, name].join(".");
-
-    // InterfaceDeclaration: export interface SymbolNode {  ... }
-    // ExportKeyword: node.modifiers[0], kind = 95
-
-    // ImportDeclaration: import {dirname} from 'path';
-    // ImportClause: {dirname}
 
     if (ts.isFunctionDeclaration(node) && node.name) {
       const name = node.name.text;
@@ -68,7 +62,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
 
       out.push({
         name: newContainer.join("."),
-        // kind: "function",
         kind: "declaration",
         depth,
         pos: node.name.getStart(sourceFile),
@@ -88,7 +81,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
 
     // Arrow functions and function expressions
     else if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {
-      // else if (ts.isFunctionLike(node)) {  // this doesn't work here
       const name = "(anonymous)";
       const {asString} = getParameterDetails(sourceFile, node.parameters, doc);
 
@@ -193,7 +185,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
       }
 
       out.push({
-        // name,  // fullName(name) probably not required here
         name: fullName(name),
         kind: "declaration",
         depth,
@@ -274,7 +265,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
       });
     }
 
-    // is this used anymore?
     else if (
       ts.isExpressionStatement(node) &&
       ts.isBinaryExpression(node.expression) &&
@@ -392,7 +382,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
       const value = right.getText(sourceFile);
       let fullName = chain.join('.');
 
-      // use these elsewhere
       const leftStart = doc.positionAt(left.getStart(sourceFile));
       const leftEnd = doc.positionAt(left.getEnd());
 
@@ -617,7 +606,7 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
       return;
     }
 
-    // Fallback: only recurse if not already handled
+    // recursion
     ts.forEachChild(node, child => visitWithDepth(child, depth, container));
   }
 
@@ -627,7 +616,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
 }
 
 
-// use this returnType in getArrowFunctionParametersRange()
 function getParameterDetails(sourceFile: ts.SourceFile, params: ts.NodeArray<ts.ParameterDeclaration | ts.Expression>, doc: TextDocument): {selectionRange: Range | undefined; asString: string;} {
 
   let start, end;
@@ -677,12 +665,12 @@ export function getAllEnclosingFunctionNames(node: ts.Node): string[] {
   let cur: ts.Node | undefined = node.parent;
 
   while (cur) {
-    // 1. Named function declaration: function foo() { … }
-    // 2. Class declaration
+    // Named function declaration: function foo() { … }
+    // Class declaration
     if ((ts.isFunctionDeclaration(cur) || ts.isClassDeclaration(cur)) && cur.name) {
       names.push(cur.name.text);
     }
-    // 3. Object: const myObj2 = {  }  // works for highest level myObj2
+    // Object: const myObj2 = {  }  // works for highest level myObj2
     else if (ts.isVariableDeclaration(cur) && ts.isIdentifier(cur.name)) {
       names.push(cur.name.text);
     }
@@ -692,7 +680,7 @@ export function getAllEnclosingFunctionNames(node: ts.Node): string[] {
       names.push(cur.name.text);
     }
 
-    // 2. Class method / getter / setter: class C { bar() { } }
+    // Class method / getter / setter: class C { bar() { } }
     else if (
       (ts.isMethodDeclaration(cur) ||
         ts.isGetAccessor(cur) ||
@@ -701,7 +689,7 @@ export function getAllEnclosingFunctionNames(node: ts.Node): string[] {
     ) {
       names.push(cur.name.text);
     }
-    // 3. FunctionExpression or ArrowFunction assigned to a variable:
+    // FunctionExpression or ArrowFunction assigned to a variable:
     //    const baz = function() { … }  or  const qux = () => { … }
     else if (
       (ts.isFunctionExpression(cur) || ts.isArrowFunction(cur)) &&
@@ -720,6 +708,8 @@ export function getAllEnclosingFunctionNames(node: ts.Node): string[] {
 
 export async function buildNodeTree(items: NodePickItem[]): Promise<NodeTreeItem[]> {
 
+  const _Globals = Globals.default;
+
   const roots: NodeTreeItem[] = [];
   const stack: NodeTreeItem[] = [];
 
@@ -728,11 +718,7 @@ export async function buildNodeTree(items: NodePickItem[]): Promise<NodeTreeItem
     const hasChild = next?.depth === item.depth + 1;
 
     const treeItem = new TreeItem(
-      // item.label,
       `${item.label} • ${item.detail}`,
-      // hasChild
-      //   ? TreeItemCollapsibleState.Collapsed
-      //   : TreeItemCollapsibleState.None
       hasChild
         ? (_Globals.collapseTreeViewItems === "collapseOnOpen" ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.Expanded)
         : TreeItemCollapsibleState.None
@@ -764,21 +750,6 @@ export async function buildNodeTree(items: NodePickItem[]): Promise<NodeTreeItem
   return roots;
 }
 
-// need to seaarch in children too!!
-// export async function filterTree(query: (keyof SymMap)[] | string, items: SymbolNode[]): Promise<SymbolNode[]> {
-//   let filtered: SymbolNode[] = [];
-
-//   if (typeof query === "string")
-//     filtered = items.filter(item => {
-//       return item.name.toString().includes(query) || item.detail?.includes(query);
-//     });
-//   else  // query is a (keyof SymMap)[]  //  ["function", "class", etc.]
-//     filtered = items.filter(item => {
-//       return query.some(q => item.name.toString().includes(q) || item.detail?.includes(q));
-//     });
-
-//   return filtered;
-// }
 
 
 function nodeMatches(node: SymbolNode, query: string[] | string): boolean {
@@ -789,6 +760,7 @@ function nodeMatches(node: SymbolNode, query: string[] | string): boolean {
     return query.some(q => node.name.toString().includes(q) || !!node.detail?.includes(q));
   }
 }
+
 
 /**
  * Return a new SymbolNode with pruned children (only matches/descendant-matches).

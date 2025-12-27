@@ -1,6 +1,7 @@
 import {SymbolKind, ThemeIcon} from 'vscode';
 import type {SymMap, SymMapKey} from './types';
 
+
 /**
  * A 'map' from a kbSymbol option to its SymbolKind (a number)
 */
@@ -99,30 +100,3 @@ export const mapKindToNameAndIconPath = new Map<SymbolKind, {name: string; iconP
   [SymbolKind.Operator, {name: 'operator', iconPath: new ThemeIcon('symbol-operator')}],
   [SymbolKind.TypeParameter, {name: 'typeParameter', iconPath: new ThemeIcon('symbol-type-parameter')}]
 ] as const);
-
-// mapping.set(SymbolKind.File, {name: 'file', iconPath: new ThemeIcon('symbol-file')});
-// mapping.set(SymbolKind.Module, {name: 'module', iconPath: new ThemeIcon('symbol-module')});
-// mapping.set(SymbolKind.Namespace, {name: 'namespace', iconPath: new ThemeIcon('symbol-namespace')});
-// mapping.set(SymbolKind.Package, {name: 'package', iconPath: new ThemeIcon('symbol-package')});
-// mapping.set(SymbolKind.Class, {name: 'class', iconPath: new ThemeIcon('symbol-class')});
-// mapping.set(SymbolKind.Method, {name: 'method', iconPath: new ThemeIcon('symbol-method')});
-// mapping.set(SymbolKind.Property, {name: 'property', iconPath: new ThemeIcon('symbol-property')});
-// mapping.set(SymbolKind.Field, {name: 'field', iconPath: new ThemeIcon('symbol-field')});
-// mapping.set(SymbolKind.Constructor, {name: 'constructor', iconPath: new ThemeIcon('symbol-constructor')});
-// mapping.set(SymbolKind.Enum, {name: 'enum', iconPath: new ThemeIcon('symbol-enum')});
-// mapping.set(SymbolKind.Interface, {name: 'interface', iconPath: new ThemeIcon('symbol-interface')});
-// mapping.set(SymbolKind.Function, {name: 'function', iconPath: new ThemeIcon('symbol-function')});
-// mapping.set(SymbolKind.Variable, {name: 'variable', iconPath: new ThemeIcon('symbol-variable')});
-// mapping.set(SymbolKind.Constant, {name: 'constant', iconPath: new ThemeIcon('symbol-constant')});
-// mapping.set(SymbolKind.String, {name: 'string', iconPath: new ThemeIcon('symbol-string')});
-// mapping.set(SymbolKind.Number, {name: 'number', iconPath: new ThemeIcon('symbol-number')});
-// mapping.set(SymbolKind.Boolean, {name: 'boolean', iconPath: new ThemeIcon('symbol-boolean')});
-// mapping.set(SymbolKind.Array, {name: 'array', iconPath: new ThemeIcon('symbol-array')});
-// mapping.set(SymbolKind.Object, {name: 'object', iconPath: new ThemeIcon('symbol-object')});
-// mapping.set(SymbolKind.Key, {name: 'key', iconPath: new ThemeIcon('symbol-key')});
-// mapping.set(SymbolKind.Null, {name: 'null', iconPath: new ThemeIcon('symbol-null')});
-// mapping.set(SymbolKind.EnumMember, {name: 'enumMember', iconPath: new ThemeIcon('symbol-enum-member')});
-// mapping.set(SymbolKind.Struct, {name: 'struct', iconPath: new ThemeIcon('symbol-struct')});
-// mapping.set(SymbolKind.Event, {name: 'event', iconPath: new ThemeIcon('symbol-event')});
-// mapping.set(SymbolKind.Operator, {name: 'operator', iconPath: new ThemeIcon('symbol-operator')});
-// mapping.set(SymbolKind.TypeParameter, {name: 'typeParameter', iconPath: new ThemeIcon('symbol-type-parameter')});

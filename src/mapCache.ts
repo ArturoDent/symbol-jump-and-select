@@ -1,4 +1,8 @@
-export class BoundedCache<K, V> {
+import * as vscode from 'vscode';
+
+
+// export class BoundedCache<K, V> {
+export class BoundedCache<K extends vscode.Uri, V> {
 
   private map = new Map<K, V>();
 
@@ -6,7 +10,7 @@ export class BoundedCache<K, V> {
 
   set(key: K, value: V): void {
     if (this.map.has(key)) {
-      this.map.delete(key); // Refresh order
+      this.map.delete(key);      // to set this item to last in Map = newest/last visited
     }
 
     this.map.set(key, value);
@@ -28,7 +32,7 @@ export class BoundedCache<K, V> {
     if (!this.map.has(key)) return undefined;
 
     const value = this.map.get(key)!;
-    this.map.delete(key); // Refresh order
+    this.map.delete(key);      // to set this item to last in Map = newest/last visited
     this.map.set(key, value);
     return value;
   }
@@ -44,6 +48,15 @@ export class BoundedCache<K, V> {
 
   clear(): void {
     this.map.clear();
+  }
+
+  // to clear values for ts/js files only
+  clearJSTSValues(): void {
+    const ending = /(ts|tsx|js|jsx)$/g;
+    this.map.forEach((value: V, uri: K) => {
+      if (uri.fsPath.match(ending))
+        this.map.set(uri, null as unknown as V);
+    });
   }
 
   size(): number {

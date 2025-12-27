@@ -13,18 +13,14 @@ export async function filterDocNodes(kbSymbols: (keyof SymMap)[], docNodes: Node
 
   for await (const symbol of docNodes) {
 
-    // let match = false;
-
     if (Object.keys(symMap).includes(symbol.kind)) {
       filteredDocNodes.push(symbol);
-      // match = true;
     }
     else if (Object.keys(symMap).some(kbSymbol => symbol.detail.includes(kbSymbol))) {
       filteredDocNodes.push(symbol);
-      // match = true;
     }
 
-    // TODO: this may be unnecessary - already in 'symbol.detail'
+    // this may be unnecessary - already in 'symbol.detail'
     // else if (has children and at least one of those is the right kind)
     // if (!match && symbol.children.length) {
     //   const found = hasMatchingSymbol([symbol], symMap, symMapHasFunction, isRightKind);  // predicate is isRightKind

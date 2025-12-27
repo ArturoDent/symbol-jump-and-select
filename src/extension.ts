@@ -4,17 +4,22 @@ import {
 } from 'vscode';
 import {SymbolsProvider} from './tree';
 import {SymbolPicker} from './quickPick';
-import {showCommandMessage} from './messages';
-import _Globals from './myGlobals';
+import {showSimpleMessage} from './messages';
+// import _Globals from './myGlobals';
+import * as Globals from './myGlobals';
 
-import type {SymMap, SymbolMap, NodePickItems, SymbolNode} from './types';
+const _Globals = Globals.default;
+
+// import type {SymMap, SymbolMap, NodePickItems, SymbolNode, ReturnSymbols} from './types';
+import type {SymMap, SymbolNode, ReturnSymbols} from './types';
+import {TreeCache} from './types';
 
 let symbolView: TreeView<SymbolNode>;
 
 
 export async function activate(context: ExtensionContext) {
 
-	_Globals.init(context);
+	await _Globals.init(context);
 	let symbolProvider: SymbolsProvider;
 
 	if (_Globals.makeTreeView) {
@@ -30,71 +35,115 @@ export async function activate(context: ExtensionContext) {
 		await commands.executeCommand('setContext', 'symbolsTree.collapsed', false);
 
 		// initial population of TeeView, if it is visible
-		if (window.activeTextEditor && symbolView.visible) await symbolProvider.refresh('');
+		// if (window.activeTextEditor && symbolView.visible) await symbolProvider.refresh('');
 
 		context.subscriptions.push(symbolView);
 		context.subscriptions.push(symbolProvider);
 	}
 
+	// this could be delayed (and disposed of) in the symbolsTree.showQuickPick() command
 	const symbolPicker = new SymbolPicker(context);  // the QuickPick class
-
-	const showQuickPick = commands.registerCommand('symbolsTree.showQuickPick', async (args) => {
-
-		const document = window.activeTextEditor?.document;
-		if (!document) return;  // message?
-
-		let symbols: NodePickItems | SymbolMap | undefined;
-
-		let kbSymbols: (keyof SymMap)[];
-		// if triggered from Command Palette, args is undefined
-
-		if (!!args?.symbols && !Array.isArray(args?.symbols)) args.symbols = [args.symbols];
-		else if (Array.isArray(args?.symbols) && args?.symbols?.length === 0) args.symbols = undefined;
-		// default is all symbols
-
-		kbSymbols = args?.symbols || undefined;
-
-		// if "javascript" and useTSC setting = true
-		if (_Globals.isJSTS && _Globals.useTypescriptCompiler)
-			symbols = await symbolPicker.getNodes(kbSymbols, document); // NodePickItem[] | undefined = NodePickItems
-		else
-			symbols = await symbolPicker.getSymbols(kbSymbols, document); // Map<DocumentSymbol, number> | undefined = SymbolMap
-
-		if (symbols) await symbolPicker.render(symbols);
-	});
-	context.subscriptions.push(showQuickPick);
-
-	const filterTree = commands.registerCommand('symbolsTree.applyFilters', async (args) => {
-
-		// {
-		// 	"key": "alt+f",
-		// 		"command": "symbolsTree.applyFilters",
-		// 			"args": [
-		// 				"class"
-		// 			],
-		// 				"when": "SymbolsTree.visible";
-		// }
-		if (window.activeTextEditor) await symbolProvider.refresh(args || undefined);
-	});
-	context.subscriptions.push(filterTree);
+	context.subscriptions.push(symbolPicker);
 
 	context.subscriptions.push(
 
-		commands.registerCommand('symbolsTree.refresh', async () => {
+		commands.registerCommand('symbolsTree.refreshQuickPick', async (args) => {
+			await commands.executeCommand("symbolsTree.showQuickPick");
+		}),
 
-			await symbolProvider.refresh('', true);  // true = ignoreCache
+		commands.registerCommand('symbolsTree.showQuickPick', async (args) => {
+
+			const document = window.activeTextEditor?.document;
+			if (!document) return;  // message?
+
+			// if (args.symbols) {  // excludes 'symbols': '' which is right
+			// 	query = removeEmptyStringsFromQuery(args.symbols);   // remove empty strings
+
+			// 	if (!query!.length) {
+			// 		showSimpleMessage("There is no query in your keybinding after removing empty strings.");
+			// 		return;
+			// 	}
+			// }
+
+			let symbols: ReturnSymbols | undefined;
+
+			let kbSymbols: (keyof SymMap)[];
+			// if triggered from Command Palette, args is undefined
+
+			if (!!args?.symbols && !Array.isArray(args?.symbols)) args.symbols = [args.symbols];
+			else if (Array.isArray(args?.symbols) && args?.symbols?.length === 0) args.symbols = undefined;
+			// default is all symbols
+
+			kbSymbols = args?.symbols || undefined;
+
+			// if "javascript" and useTSC setting = true
+			if (_Globals.isJSTS && _Globals.useTypescriptCompiler)
+				symbols = await symbolPicker.getNodes(kbSymbols, document); // NodePickItem[] | undefined = NodePickItems
+			else
+				symbols = await symbolPicker.getSymbols(kbSymbols, document); // Map<DocumentSymbol, number> | undefined = SymbolMap
+
+			// const query = removeEmptyStringsFromQuery(args);   // remove empty strings
+
+			// if (!query?.length) {
+			// 	showSimpleMessage("There is no query in your keybinding after removing empty strings.");
+			// }
+
+			// .length?
+			// if (symbols?.filteredSymbols) await symbolPicker.render(symbols.filteredSymbols, true);
+			if (symbols?.filteredSymbols) await symbolPicker.render(symbols, true);
+		}));
+
+
+	context.subscriptions.push(
+		// from keybinding only
+		commands.registerCommand('symbolsTree.applyFilter', async (args) => {
+
+			if (!window.activeTextEditor) {
+				showSimpleMessage("There is no text editor open.");
+				return;
+			}
+
+			// this handles both an empty array and an empty string
+			// but not an array with only an empty string member, 
+			// that is handled in removeEmptyStringsFromQuery()
+			if (!args || !args.length) {
+				showSimpleMessage("You need an 'args' option in your 'symbolsTree.applyFilter' keybinding. Opening a QuickInput to get your filter.");
+				await commands.executeCommand('symbolsTree.getFilter');
+				return;
+			}
+
+			const query = removeEmptyStringsFromQuery(args);   // remove empty strings
+
+			if (!query?.length) {
+				showSimpleMessage("There is no query in your keybinding after removing empty strings.");
+			}
+			else {
+				await symbolProvider.refresh(query, TreeCache.UseAllNodesIgnoreFilter);
+			}
+		}),
+
+		commands.registerCommand('symbolsTree.refreshTree', async () => {
+
+			// refresh will unlock if locked
+			if (SymbolsProvider.locked) {
+				SymbolsProvider.locked = false;
+				await commands.executeCommand('setContext', 'symbolsTree.locked', false);
+				SymbolsProvider.lockedUri = undefined;
+				symbolProvider.setTitle("");
+			}
+
+			await symbolProvider.refresh('', TreeCache.IgnoreFilterAndAllNodes);  // true = ignoreCache
 
 			if (_Globals.collapseTreeViewItems === "expandOnOpen") {
 				await symbolProvider.expandAll();
 				await commands.executeCommand('setContext', 'symbolsTree.collapsed', false);
 
-				// TODO: reveal where cursor is ?
+				// reveal where cursor is ?
 				// await symbolProvider.expandMiddleSymbol();
 			}
 			else {
 				await commands.executeCommand('workbench.actions.treeView.symbolsTree.collapseAll');
 				await commands.executeCommand('setContext', 'symbolsTree.collapsed', true);
-
 				// await symbolProvider.expandMiddleSymbol();
 			}
 		}),
@@ -119,20 +168,27 @@ export async function activate(context: ExtensionContext) {
 			// open the QuickInput and create a filtered TreeItem[]
 			let query = await window.showInputBox();
 
-			// TODO: handle "case && call" => do successive searches
+			if (!query?.length) {
+				showSimpleMessage("There is no query from your input after removing empty strings.");
+				return;
+			}
+
+			// handle "case && call" => do successive searches, not implemented yet
 			// handle "class || rex"  => ["class", "rex"] // if query contains "||" split on " || "
-			// handle "class,rex" treat as an ||
+			// handle "class,rex" treat as an OR
 			const orRE = new RegExp("\\s*\\|\\|\\s*");
 			const commaRE = new RegExp("\\s*,\\s*");
 
-			if (query) {
-				if (query?.includes('||')) finalQuery = query.split(orRE);
-				else if (query?.includes(',')) finalQuery = query.split(commaRE);
-				else finalQuery = query;
-			}
+			if (query?.includes('||')) finalQuery = query.split(orRE);
+			else if (query?.includes(',')) finalQuery = query.split(commaRE);
+			else finalQuery = query;
 
-			if (finalQuery) {
-				await symbolProvider.refresh(finalQuery);  // set a global query - unlock which needs to refresh()
+			if (finalQuery.length) {
+
+				// finalQuery can include an empty string if input 'class ||  '
+				const query = removeEmptyStringsFromQuery(finalQuery);   // remove empty strings
+				if (query?.length) await symbolProvider.refresh(query, TreeCache.IgnoreFilter);
+				else showSimpleMessage("There is no query from your input after removing empty strings.");
 			}
 		}),
 
@@ -149,7 +205,7 @@ export async function activate(context: ExtensionContext) {
 		commands.registerCommand('symbolsTree.revealSymbol', async (node: SymbolNode) => {
 
 			if (!node && !symbolView.selection.length) {
-				showCommandMessage("There are no symbols selected in the Tree View to reveal.");
+				showSimpleMessage("There are no symbols selected in the Tree View to reveal.");
 				return;
 			}
 
@@ -183,7 +239,7 @@ export async function activate(context: ExtensionContext) {
 		commands.registerCommand('symbolsTree.selectSymbol', async (node: SymbolNode) => {
 
 			if (!node && !symbolView.selection.length) {
-				showCommandMessage("There are no symbols selected in the Tree View to select.");
+				showSimpleMessage("There are no symbols selected in the Tree View to select.");
 				return;
 			}
 
@@ -229,15 +285,23 @@ export async function activate(context: ExtensionContext) {
 
 	context.subscriptions.push(window.onDidChangeActiveTextEditor(async (textEditor) => {
 		if (textEditor) {
-
 			_Globals.updateIsJSTS(textEditor);
-
 			if (symbolView.visible && !SymbolsProvider.locked) {
-				// await symbolProvider.refresh('');
-				await symbolProvider.debouncedRefresh('');  // doesn't help if rapidly switch editors?
+				await symbolProvider.debouncedRefresh('', TreeCache.UseFilterAndAllNodes);  // doesn't help if rapidly switch editors?
 			}
 		}
 	}));
+}
+
+function removeEmptyStringsFromQuery(query: string | string[]): string | string[] | undefined {
+
+	if (typeof query === 'string') {
+		if (!query.length) return undefined;
+		else return query;
+	}
+	else if (Array.isArray(query)) {
+		return query.filter(q => q.length);
+	}
 }
 
 export function deactivate() {}

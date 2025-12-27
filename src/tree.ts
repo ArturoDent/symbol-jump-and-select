@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
 import {collectSymbolItemsFromSource, buildNodeTree, filterTree} from './nodeList';
 import type {NodeTreeItem, SymbolNode} from './types';
-import _Globals from './myGlobals';
-
+import {TreeCache, type CacheUse} from './types';
 import {showTreeViewMessage, showQuickPickMessage} from './messages';
 import {BoundedCache} from './mapCache';
 import {debounce} from "ts-debounce";
+import * as Globals from './myGlobals';
 
 
 let filteredTreeSymbols: SymbolNode[] = [];
@@ -13,7 +13,9 @@ let filteredTreeSymbols: SymbolNode[] = [];
 // Define a type for the BoundedCache value, key is a Uri
 type TreeCache = {
   refreshSymbols: boolean;
-  symbols: SymbolNode[];
+  filterQuery: string | string[];
+  allSymbols: SymbolNode[];
+  filteredSymbols: SymbolNode[];
 };
 
 
@@ -25,11 +27,11 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
   private disposables: vscode.Disposable[] = [];
   private view?: vscode.TreeView<SymbolNode>;
 
-  // Create a bounded cache of Map <Uri → CacheEntry> with max size 3
+  // Create a bounded cache of Map <Uri → TreeCache> with max size 3
   private cache = new BoundedCache<vscode.Uri, TreeCache>(3);
   public debouncedRefresh: ReturnType<typeof debounce>;
 
-  private lockedUri: vscode.Uri | undefined = undefined;
+  public static lockedUri: vscode.Uri | undefined = undefined;
   public static locked = false;
   public static filtered = false;
 
@@ -41,26 +43,35 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
     context.subscriptions.push(this.cache);
 
     // create a debounced async function
-    // bind the method so `this` is correct
-    // this.debouncedRefresh = debounce(this.refresh.bind(this) as (q: (keyof SymMap)[] | string) => Promise<void>, 300);
     // 800ms seems to be necessary to avaoid a rapid switching between editors problem
-    this.debouncedRefresh = debounce((q) => this.refresh(q), 800, {isImmediate: false});  // this also correctly binds 'this.'
+    this.debouncedRefresh = debounce((q, k) => this.refresh(q, k), 800, {isImmediate: false});  // this also correctly binds 'this.'
 
-    const sub = vscode.workspace.onDidChangeTextDocument(async (event) => {
+    // could unregister when view not visible and re-register when visible?
+    context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(async (event) => {
       if (event.contentChanges.length) {
-        this.cache.set(event.document.uri, {refreshSymbols: true, symbols: []});
-        void this.debouncedRefresh(this.filterQuery).catch(err => {
-          console.error('refresh failed', err);  // create a message notification ?
-        });
+        if (this.view?.visible) {
+          void this.debouncedRefresh(this.filterQuery, TreeCache.IgnoreFilterAndAllNodes).catch(err => {
+            console.error('refresh failed', err);  // create a message notification ?
+          });
+        }
+        else {
+          this.cache.set(event.document.uri,
+            {refreshSymbols: true, filterQuery: '', allSymbols: [], filteredSymbols: []});
+        }
       }
-    });
+    }));
 
     // const sub1 = this.view?.onDidChangeSelection((event) => {
-    //   console.log(event);
     // });
 
-    this.disposables.push(sub);
-    // this.disposables.push(sub1);
+    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(e => {
+      if (e.affectsConfiguration("symbolsTree.useTypescriptCompiler")) {
+        // if useTypescriptCompiler changed, cache needs to be nullified
+        // but only for ts/tsx/js/jsx files, set uri's => null values
+        this.cache.clearJSTSValues();
+        if (this.view?.visible) this.refresh(this.filterQuery, TreeCache.IgnoreFilterAndAllNodes);
+      }
+    }));
   }
 
   public setView(view: vscode.TreeView<SymbolNode>) {
@@ -73,22 +84,17 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
       else await vscode.commands.executeCommand('setContext', 'SymbolsTree.hasSelection', false);
     }));
 
+    // this fires on activation too
     this.disposables.push(this.view.onDidChangeVisibility(e => {
       vscode.commands.executeCommand('setContext', 'symbolsTree.visible', e.visible);
       const uri = vscode.window.activeTextEditor?.document.uri;
 
-      // TODO fix below: this.lockedUri
       if (e.visible) {
-        if (!SymbolsProvider.locked) this.refresh('');
-        else if (SymbolsProvider.locked && uri === this.lockedUri) this.refresh('');
+        if (!SymbolsProvider.locked) this.refresh('', TreeCache.IgnoreFilterAndAllNodes);
+        else if (SymbolsProvider.locked && uri === SymbolsProvider.lockedUri) this.refresh('', TreeCache.UseFilterAndAllNodes);
       }
     }));
   }
-
-  // get filterQuery(): (keyof SymMap)[] | string {
-  //   // your getter for the current query
-  //   return this.filterQuery1; // replace with real value
-  // }
 
   // refresh(): void {
   //   this._onDidChangeTreeData.fire();
@@ -103,53 +109,77 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
       SymbolsProvider.locked = true;
       await vscode.commands.executeCommand('setContext', 'symbolsTree.locked', true);
 
-      this.lockedUri = vscode.window.activeTextEditor?.document.uri;
+      SymbolsProvider.lockedUri = vscode.window.activeTextEditor?.document.uri;
 
       if (this.view)
         this.view.title = "\u2007locked";  // \u2007 figure space: https://unicode-explorer.com/c/2007
     }
-    else {
+    else {  // unlock
       SymbolsProvider.locked = false;
       await vscode.commands.executeCommand('setContext', 'symbolsTree.locked', false);
 
-      this.lockedUri = undefined;
+      SymbolsProvider.lockedUri = undefined;
 
       if (this.view)
         this.view.title = "";
 
-      // TODO: if there is an existing filterQuery ?
-      await this.refresh('');
+      await this.refresh('', TreeCache.UseFilterAndAllNodes);
     }
   }
 
 
-  public async refresh(filterQuery: string[] | string, ignoreCache = false) {
+  public async refresh(filterQuery: string[] | string, useCache: CacheUse = TreeCache.UseAllNodesIgnoreFilter) {
 
-    // this.debouncedRefresh.cancel?.();  // kill any pending refreshes if change editor
+    const _Globals = Globals.default;
 
     this.filterQuery = filterQuery;
     this.view!.message = undefined;
 
     const editor = vscode.window.activeTextEditor;
-    const uri = editor?.document.uri || this.lockedUri;
-    if (!editor || !uri) return;
-
-    // Map.get() can return undefined if key not found
-    let thisUriCache: TreeCache | undefined = this.cache.get(editor.document.uri);
-
-    if (!ignoreCache && !filterQuery && thisUriCache && !thisUriCache.refreshSymbols) {
-
-      if (thisUriCache.symbols.length) this.tree = thisUriCache.symbols as SymbolNode[];
-      else this.tree = [];
-      this._onDidChangeTreeData.fire();
-      return;
-    }
+    const uri = editor?.document.uri || SymbolsProvider.lockedUri || this.cache.getLastVisitedUri();
+    if (!uri) return;
 
     let docSymbols: SymbolNode[] | NodeTreeItem[];
     let treeSymbols: SymbolNode[] = [];
 
+    // Map.get() can return undefined if key not found
+    let thisUriCache: TreeCache | undefined = this.cache.get(uri);
+    if (thisUriCache && !this.filterQuery.length) this.filterQuery = thisUriCache.filterQuery || '';
+
+    if (useCache === TreeCache.UseFilterAndAllNodes && thisUriCache && !thisUriCache.refreshSymbols) {
+      if (thisUriCache.filterQuery.length) {
+
+        if (thisUriCache.filteredSymbols.length) {
+          this.tree = thisUriCache.filteredSymbols as SymbolNode[];
+          this._onDidChangeTreeData.fire();
+          return;
+        }
+        else if (thisUriCache.allSymbols.length)
+          treeSymbols = thisUriCache.allSymbols as SymbolNode[];
+      }
+      else {
+        if (thisUriCache.allSymbols.length) this.tree = thisUriCache.allSymbols as SymbolNode[];
+        else this.tree = [];
+        this._onDidChangeTreeData.fire();
+        return;
+      }
+    }
+    else if (!filterQuery && useCache === TreeCache.UseAllNodesIgnoreFilter && thisUriCache && !thisUriCache.refreshSymbols) {
+      if (thisUriCache.allSymbols.length) this.tree = thisUriCache.allSymbols as SymbolNode[];
+      else this.tree = [];
+      this._onDidChangeTreeData.fire();
+      return;
+    }
+    else if (filterQuery && useCache === TreeCache.UseAllNodesIgnoreFilter && thisUriCache && !thisUriCache.refreshSymbols) {
+      if (thisUriCache.allSymbols.length)
+        treeSymbols = thisUriCache.allSymbols as SymbolNode[];
+    }
+
     if (_Globals.makeTreeView && _Globals.useTypescriptCompiler && _Globals.isJSTS) {
-      const nodes = await collectSymbolItemsFromSource(editor.document);
+
+      const doc = vscode.workspace.textDocuments.find(d => d.uri.toString() === uri.toString());
+      if (!doc) return;
+      const nodes = await collectSymbolItemsFromSource(doc);
       if (nodes?.length) {
         docSymbols = await buildNodeTree(nodes) as NodeTreeItem[];
         treeSymbols = toSymbolNodesFromNodeTreeItems(docSymbols, uri);
@@ -167,9 +197,8 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
       // not getting .py symbols on opening vscode ExtensionHost unless 300ms
       // increase attempts or time if not js/ts/jsx/tsx ? editor.document.languageId.startsWith("javascript") or "typescript"
       // docSymbols = await getDocumentSymbolsWithRetry(uri, 6, 300) as SymbolNode[];
-
-
       docSymbols = await getDocumentSymbolsWithRetry(uri, [1, 2, 3, 4, 5, 6], 1000) as SymbolNode[];
+
       if (docSymbols?.length)
         treeSymbols = toSymbolNodesNodefromDocumentSymbols(docSymbols, uri);
       else {
@@ -189,7 +218,7 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
 
       if (!filteredTreeSymbols.length) {
         showTreeViewMessage("Found no matches for the filter query.", this.view!);
-        // TODO: clear the tree or do nothing?
+        // clear the tree or do nothing?
         this.tree = [];
         this._onDidChangeTreeData.fire();
         return;
@@ -198,12 +227,11 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
 
     if (filterQuery.length > 0 && filteredTreeSymbols.length) {
       this.tree = filteredTreeSymbols;
-      this.cache.set(uri, {refreshSymbols: false, symbols: filteredTreeSymbols});
-      // this.lastVisitedUri = uri;
+      this.cache.set(uri, {refreshSymbols: false, filterQuery: this.filterQuery, allSymbols: treeSymbols, filteredSymbols: filteredTreeSymbols});
     }
     else {
       this.tree = treeSymbols;
-      this.cache.set(uri, {refreshSymbols: false, symbols: treeSymbols});
+      this.cache.set(uri, {refreshSymbols: false, filterQuery: this.filterQuery, allSymbols: treeSymbols, filteredSymbols: filteredTreeSymbols});
     }
 
     this._onDidChangeTreeData.fire();
@@ -228,23 +256,6 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
   // this needs getParent(element) to work
   public async expandAll(): Promise<void> {
     if (this.view && this.tree.length) {
-      // let middleSymbol = await this.getSymbolAtCenterOfViewport();
-      // let middleSymbolOuterParent = this.tree[0];
-
-      // if (middleSymbol) {
-      //   for (const topNode of this.tree) {
-      //     if (topNode.range.contains(middleSymbol.range)) middleSymbolOuterParent = topNode;
-      //   }
-
-      //   for (const node of this.tree) {
-      //     if (node === middleSymbolOuterParent) continue;
-      //     // Number.MAX_SAFE_INTEGER ensures full expansion
-      //     try {
-      //       await this.view.reveal(node, {expand: Number.MAX_SAFE_INTEGER, focus: false, select: false});
-      //     } catch (e) {
-      //       // ignore reveal failures when tree not visible
-      //     }
-      //   }
 
       // this.tree.reverse() would mutate the original array, slice returns a copy of the original
       const reversed = this.tree.slice().reverse(); // or [...arr].reverse()
@@ -258,14 +269,6 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
           // ignore reveal failures when tree not visible
         }
       }
-
-      // if (middleSymbol) {
-      //   await this.view.reveal(middleSymbolOuterParent, {expand: Number.MAX_SAFE_INTEGER, focus: false, select: false});
-      //   await this.view.reveal(middleSymbol, {expand: Number.MAX_SAFE_INTEGER, focus: true, select: false});
-      // }
-      // else await this.view.reveal(this.tree[0], {expand: Number.MAX_SAFE_INTEGER, focus: true, select: false});
-
-      // await this.view.reveal(this.tree[0], {expand: Number.MAX_SAFE_INTEGER, focus: true, select: false});
     }
   }
 
@@ -325,6 +328,7 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
   getTreeItem(element: SymbolNode): vscode.TreeItem {
 
     // this._Globals.collapseTreeViewItems === "collapseOnOpen"/"expandOnOpen"
+    const _Globals = Globals.default;
 
     const item = new vscode.TreeItem(
       element.name,
@@ -332,10 +336,8 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
       element.children.length > 0
         ? (_Globals.collapseTreeViewItems === "collapseOnOpen" ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded)
         : vscode.TreeItemCollapsibleState.None
-
     );
 
-    // item.iconPath = new vscode.ThemeIcon(SymbolsProvider.kindToIcon(element.kind));
     item.command = {
       command: 'symbolsTree.revealSymbol',
       title: 'Reveal Symbol',

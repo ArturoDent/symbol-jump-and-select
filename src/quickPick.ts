@@ -1,16 +1,15 @@
 import {
-  DocumentSymbol, workspace, window, Uri, TextDocument, commands, ThemeIcon, QuickInputButton,
+  DocumentSymbol, workspace, window, Uri, TextDocument, commands, ThemeIcon, QuickPick, QuickInputButton,
   QuickPickItemButtonEvent, Position, Range, Selection, TextEditorRevealType, ExtensionContext
 } from 'vscode';
-
-import _Globals from './myGlobals';
+import * as Globals from './myGlobals';
 
 import * as arrowFunctions from './arrowFunctions';
 import {filterDepthMap, unfilteredDepthMap} from './depthMap';
 import {traverseSymbols} from './qpTraverse';
 import {BoundedCache} from './mapCache';
 
-import type {SymMap, SymbolPickItem, SymbolMap, NodePickItems} from './types';
+import type {SymMap, SymbolPickItem, SymbolMap, NodePickItems, ReturnSymbols} from './types';
 import {mapKindToNameAndIconPath} from './symbolKindMap';
 import {collectSymbolItemsFromSource} from './nodeList';
 import {filterDocNodes} from './nodeFilter';
@@ -20,8 +19,12 @@ import {isMap} from 'util/types';
 // Define a type for the BoundedCache value, key is a Uri
 type QuickPickCache = {
   refreshSymbols: boolean;
-  symbols: NodePickItems | SymbolMap;
+  allSymbols: NodePickItems | SymbolMap;
+  filteredSymbols: NodePickItems | SymbolMap;
+  allQPItems?: SymbolPickItem[];
+  filteredQPItems?: SymbolPickItem[];
 };
+
 
 export class SymbolPicker {
 
@@ -40,20 +43,157 @@ export class SymbolPicker {
   private filteredDocNodes: NodePickItems = [];
 
   // Create a bounded cache of Map <Uri → QuickPickCache> with max size 3 editors
-  private readonly cache = new BoundedCache<Uri, QuickPickCache>(3);
+  private cache = new BoundedCache<Uri, QuickPickCache>(3);
+  private qp: QuickPick<SymbolPickItem>;
+  private filterButton: QuickInputButton;
+  private refreshButton: QuickInputButton;
+
+  private selectButton: QuickInputButton;
+
 
   constructor(context: ExtensionContext) {
-    // if current document was edited
-    // TODO: debounce this?
-    context.subscriptions.push(workspace.onDidChangeTextDocument(async (event) => {
-      if (event.contentChanges.length) {
-        this.cache.set(event.document.uri, {refreshSymbols: true, symbols: []});
+
+    this.qp = window.createQuickPick<SymbolPickItem>();
+    this.qp.ignoreFocusOut = true;
+    this.qp.title = 'Select Symbols';
+    (this.qp as any).sortByLabel = false;  // stop alphabetical resorting, especially in onDidChangeValue() below
+
+    this.filterButton = {
+      iconPath: new ThemeIcon('filter'),
+      tooltip: 'Toggle Filter'
+    };
+
+    this.refreshButton = {
+      iconPath: new ThemeIcon('refresh'),
+      tooltip: 'Refresh'
+    };
+
+    this.selectButton = {
+      iconPath: new ThemeIcon('selection'),
+      tooltip: 'Select Symbol'
+    };
+
+    if (!this.qp.buttons.length) this.qp.buttons = [this.filterButton, this.refreshButton];
+
+
+    context.subscriptions.push(workspace.onDidChangeConfiguration(e => {
+      if (e.affectsConfiguration("symbolsTree.useTypescriptCompiler")) {
+        // if useTypescriptCompiler changed, cache needs to be nullified
+        this.cache.clearJSTSValues();
       }
     }));
-  }
+
+    // if current document was edited
+    context.subscriptions.push(workspace.onDidChangeTextDocument(async (event) => {
+      if (event.contentChanges.length) {
+        this.cache.set(event.document.uri, {refreshSymbols: true, allSymbols: [], filteredSymbols: []});
+      }
+    }));
+
+
+    // clicking on the selection icon on hover on a line item, since there is only one button,
+    // the selectButton, no need to check that event.button === this.selectButton
+    context.subscriptions.push(this.qp.onDidTriggerItemButton((event: QuickPickItemButtonEvent<SymbolPickItem>) => {
+      const editor = window.activeTextEditor;
+      const document = editor?.document;
+      if (!document) return;
+
+      const target = event.item;
+      const lastLineLength = document.lineAt(target.range.end).text.length;
+      const extendedRange = target.range.with({
+        start: new Position(target.range.start.line, 0),
+        end: new Position(target.range.end.line, lastLineLength)
+      });
+
+      editor.selections = [new Selection(extendedRange.end, extendedRange.start)];
+      editor.revealRange(new Range(editor.selections[0].anchor, editor.selections[0].active), TextEditorRevealType.Default);
+      this.qp.hide();
+    }));
+
+    // select an item in the QP list (not clicking on the selection icon)
+    context.subscriptions.push(this.qp.onDidChangeSelection(selectedItems => {
+      const editor = window.activeTextEditor;
+      const document = editor?.document;
+      if (!document) return;
+
+      const target = selectedItems[0].selectionRange;
+      editor.selections = [new Selection(target.start, target.start)];
+      editor.revealRange(new Range(editor.selections[0].active, editor.selections[0].active), TextEditorRevealType.InCenter);
+      this.qp.hide();
+    }));
+
+    // filterButton and refreshButton
+    // make the filtered version first and save it, then, if called, make the All version and save it
+    context.subscriptions.push(this.qp.onDidTriggerButton(async button => {
+      const document = window.activeTextEditor?.document;
+      if (!document) return;
+      const _Globals = Globals.default;
+
+      if (button === this.filterButton) {
+        const cache = this.cache.get(document.uri);
+
+        if (cache && !cache.refreshSymbols) {
+          if (this.filterState === 'filtered') {        // going to unfiltered state
+            if (cache.allQPItems?.length)
+              this.qp.items = cache.allQPItems;         // assert non-null not needed
+            else {
+              showQuickPickMessage("There are no document symbols remaining AFTER applying your 'symbols' from the keybinding.");
+              this.qp.hide();
+            }
+            this.filterState = 'not filtered';
+          }
+          else {                                      // going back to filtered state
+            if (cache.filteredQPItems?.length)
+              this.qp.items = cache.filteredQPItems;   // assert non-null not needed because of length check
+            else {
+              showQuickPickMessage("There are no document symbols remaining AFTER applying your 'symbols' from the keybinding.");
+              this.qp.hide();
+            }
+            this.filterState = 'filtered';
+          }
+        }
+        else {   // start anew, file changed
+          let newSymbols: ReturnSymbols | undefined;
+
+          if (this.filterState === 'unfiltered') {  // going to filtered state
+            if (_Globals.isJSTS && _Globals.useTypescriptCompiler)
+              newSymbols = await this.getNodes(this.kbSymbolsSaved, document);
+            else
+              newSymbols = await this.getSymbols(this.kbSymbolsSaved, document);
+
+            if (newSymbols) await this.render(newSymbols, true);
+            else {
+              showQuickPickMessage("There are no document symbols remaining AFTER applying your 'symbols' from the keybinding.");
+              this.qp.hide();
+            }
+          }
+
+          else {   // go to unfiltered state
+            if (_Globals.isJSTS && _Globals.useTypescriptCompiler)
+              newSymbols = await this.getNodes(this.kbSymbolsSaved, document);
+            else
+              newSymbols = await this.getSymbols(this.kbSymbolsSaved, document);
+
+            if (newSymbols) await this.render(newSymbols, false);
+            else {
+              showQuickPickMessage("There are no document symbols remaining AFTER applying your 'symbols' from the keybinding.");
+              this.qp.hide();
+            }
+          }
+        }
+      }  // end of if (filterButton)
+
+      else if (button === this.refreshButton) {
+        this.qp.value = '';
+        await commands.executeCommand('symbolsTree.refreshQuickPick');
+      }
+
+    }));  // end of onDidTriggerButton()
+  }  // end of constructor()
+
 
   // Get the Nodes using tsc, and return filtered nodes
-  async getNodes(kbSymbols: (keyof SymMap)[], document: TextDocument): Promise<NodePickItems | undefined> {
+  async getNodes(kbSymbols: (keyof SymMap)[], document: TextDocument): Promise<ReturnSymbols | undefined> {
 
     this.kbSymbolsSaved = kbSymbols;
     let thisUriCache: QuickPickCache | undefined;
@@ -71,24 +211,24 @@ export class SymbolPicker {
       this.docSymbols = [];
     }
     else {
-      this.allDocNodes = thisUriCache.symbols as NodePickItems;
+      this.allDocNodes = thisUriCache.allSymbols as NodePickItems;
     }
 
     if (this.allDocNodes.length) {
-      // if no kbSymbols, don't bother to filter // can that ever happen - defaults to all?
       this.filteredDocNodes = await filterDocNodes(kbSymbols, this.allDocNodes);
-    } else {
+      this.cache.set(document.uri, {refreshSymbols: false, allSymbols: this.allDocNodes, filteredSymbols: this.filteredDocNodes});
+
+      if (!this.filteredDocNodes.length)
+        showQuickPickMessage("QuickPick: There are no document symbols remaining AFTER applying your 'symbols' from the keybinding.");
+    }
+    else {
       showQuickPickMessage("QuickPick: Found no document symbols in this editor.");
-      return undefined;
     }
 
-    if (!this.filteredDocNodes.length) {
-      showQuickPickMessage("QuickPick: There are no document symbols remaining AFTER applying your 'symbols' from the keybinding.");
-      return undefined;
-    }
-
-    this.cache.set(document.uri, {refreshSymbols: false, symbols: this.allDocNodes});
-    return this.filteredDocNodes;
+    return {
+      allSymbols: this.allDocNodes,
+      filteredSymbols: this.filteredDocNodes
+    };
   }
 
   /**
@@ -97,18 +237,27 @@ export class SymbolPicker {
  * 3. Build a depth map of all symbols.
  * 4. Filter the depth map by keybinding symbols.
   */
-  async getSymbols(kbSymbols: (keyof SymMap)[], document: TextDocument): Promise<SymbolMap | undefined> {
+  async getSymbols(kbSymbols: (keyof SymMap)[], document: TextDocument): Promise<ReturnSymbols | undefined> {
 
     this.kbSymbolsSaved = kbSymbols;
+    const _Globals = Globals.default;
 
     // Map.get() can return undefined if key not found
     const thisUriCache: QuickPickCache | undefined = this.cache.get(document.uri);
 
     if (thisUriCache) {
-      if (isMap(thisUriCache.symbols) && thisUriCache.symbols.size && !thisUriCache.refreshSymbols)
-        return thisUriCache.symbols as SymbolMap;
-      else (!isMap(thisUriCache.symbols) && thisUriCache.symbols.length && !thisUriCache.refreshSymbols);
-      return thisUriCache.symbols as SymbolMap;
+      if (isMap(thisUriCache.allSymbols) && thisUriCache.allSymbols.size && !thisUriCache.refreshSymbols) {
+        return {
+          allSymbols: thisUriCache.allSymbols,
+          filteredSymbols: thisUriCache.filteredSymbols
+        };
+      }
+      else if (!isMap(thisUriCache.allSymbols) && thisUriCache.allSymbols.length && !thisUriCache.refreshSymbols) {
+        return {
+          allSymbols: thisUriCache.allSymbols,
+          filteredSymbols: thisUriCache.filteredSymbols
+        };
+      }
     }
 
     else {
@@ -126,11 +275,13 @@ export class SymbolPicker {
       if (this.docSymbols) {
         this.symbolDepthMap = traverseSymbols(this.docSymbols, document);
       }
+      else
+        showQuickPickMessage("QuickPick: Found no document symbols in this editor.");
     }
 
-    // this is the filtering step and also merges the arrowFunctions
     if (this.symbolDepthMap.size) {
 
+      // this is the filtering step and also merges the arrowFunctions
       this.filteredDepthMap = await filterDepthMap(this.arrowFunctionSymbols, this.symbolDepthMap, this.kbSymbolsSaved);
 
       if (!this.filteredDepthMap.size) {
@@ -138,8 +289,15 @@ export class SymbolPicker {
         return undefined;
       }
 
-      this.cache.set(document.uri, {refreshSymbols: false, symbols: this.filteredDepthMap});
-      return this.filteredDepthMap;
+      // merges the arrowFunctions but doesn't filter
+      this.allDepthMap = await unfilteredDepthMap(this.arrowFunctionSymbols, this.symbolDepthMap);
+
+      this.cache.set(document.uri, {refreshSymbols: false, allSymbols: this.allDepthMap, filteredSymbols: this.filteredDepthMap});
+
+      return {
+        allSymbols: this.allDepthMap,
+        filteredSymbols: this.filteredDepthMap
+      };
 
     } else {
       showQuickPickMessage("There are no document symbols remaining AFTER applying your 'symbols' from the keybinding.");
@@ -150,30 +308,30 @@ export class SymbolPicker {
   /**
    * Show a QuickPick of the document symbols in options 'symbols'
   */
-  async render(items: NodePickItems | SymbolMap) {
-    const doc = window.activeTextEditor?.document;
-    if (!doc) return;
+  async render(symbols: ReturnSymbols, renderFilteredSymbols: boolean) {
+    const document = window.activeTextEditor?.document;
+    if (!document) return;
 
-    this.filterState = 'filtered';
+    const filteredQPItems = await this.makeQPItems(symbols.filteredSymbols, [this.selectButton]);
+    const allQPItems = await this.makeQPItems(symbols.allSymbols, [this.selectButton]);
 
-    // const filterButton: QuickInputButton = {
-    //   iconPath: new ThemeIcon('filter'),
-    //   // iconPath: {
-    //   //   dark: Uri.joinPath(context.extensionUri, 'resources/dark/filter.svg'),
-    //   //   light: Uri.joinPath(context.extensionUri, 'resources/light/filter.svg')
-    //   // },
-    //   tooltip: 'Toggle Filter'
-    // };
+    if (renderFilteredSymbols) {
+      this.qp.items = filteredQPItems;
+      this.filterState = 'filtered';
+    }
+    else {
+      this.qp.items = allQPItems;
+      this.filterState = 'unfiltered';
+    }
 
-    const selectButton: QuickInputButton = {
-      iconPath: new ThemeIcon('selection'),
-      tooltip: 'Select Symbol'
-    };
+    this.cache.set(document.uri, {refreshSymbols: false, allSymbols: this.allDocNodes, filteredSymbols: this.filteredDocNodes, allQPItems, filteredQPItems});
+    this.qp.show();
 
-    const refreshButton: QuickInputButton = {
-      iconPath: new ThemeIcon('refresh'),
-      tooltip: 'Refresh list'
-    };
+    // this.qp.onDidHide(() => this.qp.dispose());
+  }
+
+
+  async makeQPItems(items: NodePickItems | SymbolMap, buttons: QuickInputButton[]): Promise<SymbolPickItem[]> {
 
     const qpItems: SymbolPickItem[] = [];
 
@@ -189,7 +347,7 @@ export class SymbolPicker {
           label: label + ` --- (${mapKindToNameAndIconPath.get(symbol.kind)?.name})`,
           range: symbol.range,
           selectionRange: symbol.selectionRange,
-          buttons: [selectButton],
+          buttons
         });
       });
     }
@@ -204,101 +362,18 @@ export class SymbolPicker {
           label: `${label}   ---  (${item.detail})`,
           range: item.range,
           selectionRange: item.selectionRange,
-          buttons: [selectButton],
+          buttons
         });
       });
     }
 
-    const qp = window.createQuickPick<SymbolPickItem>();
-    qp.ignoreFocusOut = true;
-    qp.items = qpItems;
-    qp.title = 'Select Symbols';
-    (qp as any).sortByLabel = false;  // stop alphabetical resorting, especially in onDidChangeValue() below
-    qp.buttons = [refreshButton];
-    // qp.buttons = [filterButton, refreshButton];
-
-    qp.onDidTriggerItemButton((event: QuickPickItemButtonEvent<SymbolPickItem>) => {
-
-      const editor = window.activeTextEditor;
-      const document = editor?.document;
-      if (!document) return;
-
-      const target = event.item;
-      const lastLineLength = document.lineAt(target.range.end).text.length;
-      const extendedRange = target.range.with({
-        start: new Position(target.range.start.line, 0),
-        end: new Position(target.range.end.line, lastLineLength)
-      });
-
-      editor.selections = [new Selection(extendedRange.end, extendedRange.start)];
-      editor.revealRange(new Range(editor.selections[0].anchor, editor.selections[0].active), TextEditorRevealType.Default);
-      qp.hide();
-    });
-
-    // select an item
-    qp.onDidChangeSelection(selectedItems => {
-      const editor = window.activeTextEditor;
-      const document = editor?.document;
-      if (!document) return;
-
-      const target = selectedItems[0].selectionRange;
-      editor.selections = [new Selection(target.start, target.start)];
-      editor.revealRange(new Range(editor.selections[0].active, editor.selections[0].active), TextEditorRevealType.InCenter);
-      qp.hide();
-    });
-
-    // refreshButton
-    // make the filtered version first and save it, then, if called, make the All version and save it
-    qp.onDidTriggerButton(async button => {
-      const document = window.activeTextEditor?.document;
-      if (!document) return;
-
-      if (button === refreshButton) {
-        if (this.symbolDepthMap.size) {
-          if (this.filterState === 'filtered') {
-            if (!this.allDepthMap.size)
-              this.allDepthMap = await unfilteredDepthMap(this.arrowFunctionSymbols, this.symbolDepthMap);
-            if (this.allDepthMap.size) {
-              await this.render(this.allDepthMap);
-              this.filterState = 'not filtered';
-            }
-          } else {
-            if (!this.filteredDepthMap.size)
-              this.filteredDepthMap = await filterDepthMap(this.arrowFunctionSymbols, this.symbolDepthMap, this.kbSymbolsSaved);
-            if (this.filteredDepthMap.size) {
-              await this.render(this.filteredDepthMap);
-              this.filterState = 'filtered';
-            }
-          }
-        } else if (this.allDocNodes.length) {
-          if (this.filterState === 'filtered') {
-            if (!this.allDocNodes.length)
-              this.allDocNodes = await collectSymbolItemsFromSource(document);
-            if (this.allDocNodes.length) {
-              await this.render(this.allDocNodes);
-              this.filterState = 'not filtered';
-            }
-          } else {
-            if (!this.filteredDocNodes.length)
-              this.filteredDocNodes = await filterDocNodes(this.kbSymbolsSaved, this.allDocNodes);
-            if (this.filteredDocNodes.length) {
-              await this.render(this.filteredDocNodes);
-              this.filterState = 'filtered';
-            }
-          }
-        }
-      }
-    });
-
-    // click the OK button WITH a selection
-    // if !canSelectMany this fires with each selection
-    // qp.onDidAccept(() => {
-    // 	const selected = qp.selectedItems[0];
-    // 	vscode.window.showInformationMessage(`You selected: ${selected.label}`);
-    // 	qp.hide();
-    // });
-
-    qp.onDidHide(() => qp.dispose());
-    qp.show();
+    return qpItems;
   }
+
+  dispose() {
+    // this.context.subscriptions.forEach(sub => sub.dispose());
+    // this.qp.dispose();
+    // this.dispose();
+  };
+
 }

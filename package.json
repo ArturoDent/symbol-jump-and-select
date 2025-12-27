@@ -3,7 +3,7 @@
   "displayName": "Symbols Tree",
   "description": "Go to filtered symbols (with optional selection).",
   "preview": true,
-  "version": "0.1.1",
+  "version": "0.2.0",
   "publisher": "ArturoDent",
   "repository": {
     "type": "git",
@@ -106,7 +106,7 @@
     "menus": {
       "commandPalette": [
         {
-          "command": "symbolsTree.applyFilters",
+          "command": "symbolsTree.applyFilter",
           "when": "symbolsTree.visible"
         },
         {
@@ -118,7 +118,7 @@
           "when": "symbolsTree.visible && symbolsTree.hasSelection"
         },
         {
-          "command": "symbolsTree.refresh",
+          "command": "symbolsTree.refreshTree",
           "when": "symbolsTree.visible"
         },
         {
@@ -147,7 +147,7 @@
           "group": "navigation@2"
         },
         {
-          "command": "symbolsTree.refresh",
+          "command": "symbolsTree.refreshTree",
           "when": "view == symbolsTree",
           "group": "navigation@3"
         },
@@ -177,12 +177,18 @@
     "commands": [
       {
         "command": "symbolsTree.showQuickPick",
-        "title": "Open a QuickInput of filtered symbols",
+        "title": "Open a QuickPick of filtered symbols",
         "category": "Symbols Tree",
         "group": "navigation@1"
       },
       {
-        "command": "symbolsTree.applyFilters",
+        "command": "symbolsTree.refreshQuickPick",
+        "title": "Refresh to show all symbols",
+        "category": "Symbols Tree",
+        "group": "navigation@2"
+      },
+      {
+        "command": "symbolsTree.applyFilter",
         "title": "Apply a filter from a keybinding",
         "category": "Symbols Tree",
         "shortTitle": "Filter"
@@ -208,7 +214,7 @@
         }
       },
       {
-        "command": "symbolsTree.refresh",
+        "command": "symbolsTree.refreshTree",
         "category": "Symbols Tree",
         "title": "Refresh",
         "shortTitle": "Refresh",
@@ -261,7 +267,7 @@
     "keybindings": [
       {
         "key": "alt+f",
-        "command": "symbolsTree.applyFilters",
+        "command": "symbolsTree.applyFilter",
         "when": "symbolsTree.visible"
       },
       {
@@ -276,7 +282,7 @@
       },
       {
         "key": "alt+r",
-        "command": "symbolsTree.refresh",
+        "command": "symbolsTree.refreshTree",
         "when": "symbolsTree.visible"
       },
       {

@@ -212,7 +212,10 @@
                   "const": "symbolsTree.showQuickPick"
                 },
                 {
-                  "const": "symbolsTree.applyFilters"
+                  "const": "symbolsTree.refreshQuickPick"
+                },
+                {
+                  "const": "symbolsTree.applyFilter"
                 },
                 {
                   "const": "symbolsTree.getFilter"
@@ -224,7 +227,7 @@
                   "const": "symbolsTree.unlock"
                 },
                 {
-                  "const": "symbolsTree.refresh"
+                  "const": "symbolsTree.refreshTree"
                 },
                 {
                   "const": "symbolsTree.collapseAll"
@@ -241,6 +244,24 @@
               ]
             }
           }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "command": {
+              "anyOf": [
+                {
+                  "const": "symbolsTree.applyFilter"
+                }
+              ]
+            }
+          }
+        },
+        "then": {
+          "required": [
+            "args"
+          ]
         }
       },
       {
