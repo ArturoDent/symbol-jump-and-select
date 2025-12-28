@@ -80,8 +80,8 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
     // this.view.title = "title";  // could be the current file
 
     this.disposables.push(this.view?.onDidChangeSelection(async (event) => {
-      if (event.selection.length) await vscode.commands.executeCommand('setContext', 'SymbolsTree.hasSelection', true);
-      else await vscode.commands.executeCommand('setContext', 'SymbolsTree.hasSelection', false);
+      if (event.selection.length) await vscode.commands.executeCommand('setContext', 'symbolsTree.hasSelection', true);
+      else await vscode.commands.executeCommand('setContext', 'symbolsTree.hasSelection', false);
     }));
 
     // this fires on activation too

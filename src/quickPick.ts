@@ -44,11 +44,12 @@ export class SymbolPicker {
 
   // Create a bounded cache of Map <Uri → QuickPickCache> with max size 3 editors
   private cache = new BoundedCache<Uri, QuickPickCache>(3);
-  private qp: QuickPick<SymbolPickItem>;
+  public qp: QuickPick<SymbolPickItem>;
   private filterButton: QuickInputButton;
   private refreshButton: QuickInputButton;
 
   private selectButton: QuickInputButton;
+  public tracker;
 
 
   constructor(context: ExtensionContext) {
@@ -57,6 +58,7 @@ export class SymbolPicker {
     this.qp.ignoreFocusOut = true;
     this.qp.title = 'Select Symbols';
     (this.qp as any).sortByLabel = false;  // stop alphabetical resorting, especially in onDidChangeValue() below
+    this.tracker = trackQuickPickVisibility(this.qp);
 
     this.filterButton = {
       iconPath: new ThemeIcon('filter'),
@@ -290,6 +292,7 @@ export class SymbolPicker {
       }
 
       // merges the arrowFunctions but doesn't filter
+      // this.symbolDepthMap doesn't have the arrowFunctions merged yet
       this.allDepthMap = await unfilteredDepthMap(this.arrowFunctionSymbols, this.symbolDepthMap);
 
       this.cache.set(document.uri, {refreshSymbols: false, allSymbols: this.allDepthMap, filteredSymbols: this.filteredDepthMap});
@@ -326,6 +329,7 @@ export class SymbolPicker {
 
     this.cache.set(document.uri, {refreshSymbols: false, allSymbols: this.allDocNodes, filteredSymbols: this.filteredDocNodes, allQPItems, filteredQPItems});
     this.qp.show();
+    // console.log();
 
     // this.qp.onDidHide(() => this.qp.dispose());
   }
@@ -376,4 +380,31 @@ export class SymbolPicker {
     // this.dispose();
   };
 
+}
+
+// Usage: this.tracker.visible
+export function trackQuickPickVisibility(qp: QuickPick<any>) {
+  let visible = false;
+
+  // TODO: setContext in these fo ruse in keybindings
+  // Wrap show() to mark visible when called
+  const originalShow = qp.show.bind(qp);
+  qp.show = () => {
+    visible = true;
+    originalShow();
+    commands.executeCommand('setContext', 'symbolsTree.quickPickVisible', true);
+  };
+
+  // Reset when hidden
+  qp.onDidHide(() => {
+    visible = false;
+    commands.executeCommand('setContext', 'symbolsTree.quickPickVisible', false);
+  });
+
+  // Expose a property-style getter
+  return {
+    get visible() {
+      return visible;
+    }
+  };
 }

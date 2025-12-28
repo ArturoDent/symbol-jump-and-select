@@ -3,14 +3,12 @@ import {
 	Range, Position, Selection, TextEditorRevealType, TreeView
 } from 'vscode';
 import {SymbolsProvider} from './tree';
-import {SymbolPicker} from './quickPick';
+import {SymbolPicker, trackQuickPickVisibility} from './quickPick';
 import {showSimpleMessage} from './messages';
-// import _Globals from './myGlobals';
 import * as Globals from './myGlobals';
 
 const _Globals = Globals.default;
 
-// import type {SymMap, SymbolMap, NodePickItems, SymbolNode, ReturnSymbols} from './types';
 import type {SymMap, SymbolNode, ReturnSymbols} from './types';
 import {TreeCache} from './types';
 
@@ -20,38 +18,41 @@ let symbolView: TreeView<SymbolNode>;
 export async function activate(context: ExtensionContext) {
 
 	await _Globals.init(context);
-	let symbolProvider: SymbolsProvider;
+	let treeSymbolProvider: SymbolsProvider;
 
 	if (_Globals.makeTreeView) {
-		symbolProvider = new SymbolsProvider(context);
-		symbolView = window.createTreeView('symbolsTree', {treeDataProvider: symbolProvider, canSelectMany: true, showCollapseAll: false});
-		symbolProvider.setView(symbolView);
+		treeSymbolProvider = new SymbolsProvider(context);
+		symbolView = window.createTreeView('symbolsTree', {treeDataProvider: treeSymbolProvider, canSelectMany: true, showCollapseAll: false});
+		treeSymbolProvider.setView(symbolView);
 
 		// initialize context keys
+		await commands.executeCommand('setContext', 'symbolsTree.quickPickVisible', false);
+
 		await commands.executeCommand('setContext', 'symbolsTree.locked', false);
 		await commands.executeCommand('setContext', 'symbolsTree.filtered', false);
 
 		await commands.executeCommand('setContext', 'symbolsTree.hasSelection', false);
 		await commands.executeCommand('setContext', 'symbolsTree.collapsed', false);
 
-		// initial population of TeeView, if it is visible
-		// if (window.activeTextEditor && symbolView.visible) await symbolProvider.refresh('');
-
 		context.subscriptions.push(symbolView);
-		context.subscriptions.push(symbolProvider);
+		context.subscriptions.push(treeSymbolProvider);
 	}
 
 	// this could be delayed (and disposed of) in the symbolsTree.showQuickPick() command
 	const symbolPicker = new SymbolPicker(context);  // the QuickPick class
+	const qpTracker = trackQuickPickVisibility(symbolPicker.qp);
 	context.subscriptions.push(symbolPicker);
 
-	context.subscriptions.push(
+	context.subscriptions.push(    // register QuickPick commands
 
 		commands.registerCommand('symbolsTree.refreshQuickPick', async (args) => {
-			await commands.executeCommand("symbolsTree.showQuickPick");
+			if (qpTracker.visible)
+				await commands.executeCommand("symbolsTree.showQuickPick");
 		}),
 
 		commands.registerCommand('symbolsTree.showQuickPick', async (args) => {
+
+			if (qpTracker.visible) return;  // noop if alreadu open
 
 			const document = window.activeTextEditor?.document;
 			if (!document) return;  // message?
@@ -94,7 +95,7 @@ export async function activate(context: ExtensionContext) {
 		}));
 
 
-	context.subscriptions.push(
+	context.subscriptions.push(    // register Tree View commands
 		// from keybinding only
 		commands.registerCommand('symbolsTree.applyFilter', async (args) => {
 
@@ -118,7 +119,7 @@ export async function activate(context: ExtensionContext) {
 				showSimpleMessage("There is no query in your keybinding after removing empty strings.");
 			}
 			else {
-				await symbolProvider.refresh(query, TreeCache.UseAllNodesIgnoreFilter);
+				await treeSymbolProvider.refresh(query, TreeCache.UseAllNodesIgnoreFilter);
 			}
 		}),
 
@@ -129,13 +130,13 @@ export async function activate(context: ExtensionContext) {
 				SymbolsProvider.locked = false;
 				await commands.executeCommand('setContext', 'symbolsTree.locked', false);
 				SymbolsProvider.lockedUri = undefined;
-				symbolProvider.setTitle("");
+				treeSymbolProvider.setTitle("");
 			}
 
-			await symbolProvider.refresh('', TreeCache.IgnoreFilterAndAllNodes);  // true = ignoreCache
+			await treeSymbolProvider.refresh('', TreeCache.IgnoreFilterAndAllNodes);  // true = ignoreCache
 
 			if (_Globals.collapseTreeViewItems === "expandOnOpen") {
-				await symbolProvider.expandAll();
+				await treeSymbolProvider.expandAll();
 				await commands.executeCommand('setContext', 'symbolsTree.collapsed', false);
 
 				// reveal where cursor is ?
@@ -149,11 +150,11 @@ export async function activate(context: ExtensionContext) {
 		}),
 
 		commands.registerCommand('symbolsTree.lock', async () => {
-			await symbolProvider.setLock(true);
+			await treeSymbolProvider.setLock(true);
 		}),
 
 		commands.registerCommand('symbolsTree.unlock', async () => {
-			await symbolProvider.setLock(false);
+			await treeSymbolProvider.setLock(false);
 		}),
 
 		commands.registerCommand('symbolsTree.getFilter', async () => {
@@ -187,7 +188,7 @@ export async function activate(context: ExtensionContext) {
 
 				// finalQuery can include an empty string if input 'class ||  '
 				const query = removeEmptyStringsFromQuery(finalQuery);   // remove empty strings
-				if (query?.length) await symbolProvider.refresh(query, TreeCache.IgnoreFilter);
+				if (query?.length) await treeSymbolProvider.refresh(query, TreeCache.IgnoreFilter);
 				else showSimpleMessage("There is no query from your input after removing empty strings.");
 			}
 		}),
@@ -198,7 +199,7 @@ export async function activate(context: ExtensionContext) {
 		}),
 
 		commands.registerCommand('symbolsTree.expandAll', async (node: SymbolNode) => {
-			await symbolProvider.expandAll();
+			await treeSymbolProvider.expandAll();
 			await commands.executeCommand('setContext', 'symbolsTree.collapsed', false);
 		}),
 
@@ -287,7 +288,7 @@ export async function activate(context: ExtensionContext) {
 		if (textEditor) {
 			_Globals.updateIsJSTS(textEditor);
 			if (symbolView.visible && !SymbolsProvider.locked) {
-				await symbolProvider.debouncedRefresh('', TreeCache.UseFilterAndAllNodes);  // doesn't help if rapidly switch editors?
+				await treeSymbolProvider.debouncedRefresh('', TreeCache.UseFilterAndAllNodes);  // doesn't help if rapidly switch editors?
 			}
 		}
 	}));

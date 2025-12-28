@@ -219,7 +219,7 @@ You can also input multiple terms which will be handles like an `or` statement. 
  Spaces within your filter query (in the QuickPick input box) are respected, they are NOT removed.
 
 * **symbolsTree.refreshTree**  : <img src="./icons/refresh.jpg" width="16" height="16" alt="refresh icon"/>  
- In the Command Palette: ``` Symbols Tree: Refresh ```
+ In the Command Palette: ``` Symbols Tree: Refresh Tree View```
 
  -----------------
 
@@ -263,9 +263,21 @@ The following command can **ONLY** be triggered by a keybinding:
 
 ## Default Keybindings
 
+* Important: Note the custom `when` clauses that are available below.  
+
 These are the default keybindings that are set by the extension, but they can be changed by you:
 
 ```jsonc
+{
+  "key": "alt+f",                           // you can change these in vscode
+  "command": "symbolsTree.refreshQuickPick",
+  "when": "symbolsTree.quickPickVisible"    // if the QuickPick is visible
+},
+{
+  "key": "alt+f",
+  "command": "symbolsTree.showQuickPick",
+  "when": "!symbolsTree.quickPickVisible"   // when the QuickPick is not visible
+},
 {
   "key": "alt+f",
   "command": "symbolsTree.applyFilter",

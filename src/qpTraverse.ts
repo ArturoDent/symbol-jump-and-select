@@ -18,7 +18,7 @@ export function traverseSymbols(symbols: DocumentSymbol[], document: TextDocumen
       symbol.detail = text;
     }
     symbolDepthMap.set(symbol, depth);
-    // becuase else children are returned alphabetically *?!!
+    // because else children are returned alphabetically *?!!
     symbol.children.sort(compareRanges).forEach(child => visit(child, depth + 1));
   };
 

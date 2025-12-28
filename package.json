@@ -3,7 +3,7 @@
   "displayName": "Symbols Tree",
   "description": "Go to filtered symbols (with optional selection).",
   "preview": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "ArturoDent",
   "repository": {
     "type": "git",
@@ -105,6 +105,14 @@
     },
     "menus": {
       "commandPalette": [
+        {
+          "command": "symbolsTree.showQuickPick",
+          "when": "!symbolsTree.quickPickVisible"
+        },
+        {
+          "command": "symbolsTree.refreshQuickPick",
+          "when": "symbolsTree.quickPickVisible"
+        },
         {
           "command": "symbolsTree.applyFilter",
           "when": "symbolsTree.visible"
@@ -216,8 +224,8 @@
       {
         "command": "symbolsTree.refreshTree",
         "category": "Symbols Tree",
-        "title": "Refresh",
-        "shortTitle": "Refresh",
+        "title": "Refresh Tree View",
+        "shortTitle": "Refresh Tree View",
         "icon": {
           "light": "resources/light/refresh.svg",
           "dark": "resources/dark/refresh.svg"
@@ -265,6 +273,16 @@
       }
     ],
     "keybindings": [
+      {
+        "key": "alt+q",
+        "command": "symbolsTree.showQuickPick",
+        "when": "!symbolsTree.quickPickVisible"
+      },
+      {
+        "key": "alt+q",
+        "command": "symbolsTree.refreshQuickPick",
+        "when": "symbolsTree.quickPickVisible"
+      },
       {
         "key": "alt+f",
         "command": "symbolsTree.applyFilter",
