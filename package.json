@@ -3,7 +3,7 @@
   "displayName": "Symbols Tree",
   "description": "Go to filtered symbols (with optional selection).",
   "preview": true,
-  "version": "0.4.0",
+  "version": "0.4.1",
   "publisher": "ArturoDent",
   "repository": {
     "type": "git",
@@ -347,10 +347,10 @@
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.5.2",
     "eslint": "^9.25.1",
-    "fuzzysort": "^3.1.0",
-    "typescript": "^5.9.2"
+    "fuzzysort": "^3.1.0"
   },
   "dependencies": {
-    "ts-debounce": "^4.0.0"
+    "ts-debounce": "^4.0.0",
+    "typescript": "^5.9.3"
   }
 }
