@@ -13,7 +13,7 @@ Initially the Symbols Tree  icon (
 
 Here is what the top of the Symbols TreeView looks like:
 
-<img src="https://github.com/ArturoDent/symbol-jump-and-select/blob/main/images/TreeViewIcons.png?raw=true" width="350" height="100" alt="The top portion of a Symbols TreeView in the Side Bar"/>
+<img src="https://github.com/ArturoDent/symbolsTree/blob/main/images/TreeViewIcons.png?raw=true" width="350" height="100" alt="The top portion of a Symbols TreeView in the Side Bar"/>
 
 Notice the icons across the top:  
 
@@ -60,13 +60,13 @@ Here are examples of keybindings:
 
 #### Open an unfiltered QuickPick and filter by text input:
 
-<img src="https://github.com/ArturoDent/symbol-jump-and-select/blob/main/images/qpFilterRefresh1.gif?raw=true" width="750" height="500" alt="Show selections in QuickPick"/>
+<img src="https://github.com/ArturoDent/symbolsTree/blob/main/images/qpFilterRefresh1.gif?raw=true" width="750" height="500" alt="Show selections in QuickPick"/>
 
 -----------
 
 #### Open a  QuickPick already filtered by 'class':
 
-<img src="https://github.com/ArturoDent/symbol-jump-and-select/blob/main/images/qpfilterKeybinding1.gif?raw=true" width="750" height="500" alt="Show filter toggle in QuickPick"/>
+<img src="https://github.com/ArturoDent/symbolsTree/blob/main/images/qpfilterKeybinding1.gif?raw=true" width="750" height="500" alt="Show filter toggle in QuickPick"/>
 
 * Important: You will have to <kbd>Esc</kbd> to hide the QuickPick, clicking outside it will not hide it.
 
@@ -240,7 +240,7 @@ The following command is triggered by clicking on the **selection** icon ( <img 
 
  As the following demo shows you can also select more than one entry and then click the selection icon to go to and select all those symbols - with multiple cursors being created.  In the demo I use <kbd>Alt</kbd>+<kbd>click</kbd> to select multiple symbols in the TreeView list.  You can also use <kbd>Shift</kbd>+<kbd>click</kbd> to select a range of symbols - each symbol will be selected with its own cursor.  
 
-<img src="https://github.com/ArturoDent/symbol-jump-and-select/blob/main/images/TreeViewMultipleSelections1.gif?raw=true" width="950" height="500" alt="Multiple selections in the TreeView"/>
+<img src="https://github.com/ArturoDent/symbolsTree/blob/main/images/TreeViewMultipleSelections1.gif?raw=true" width="950" height="500" alt="Multiple selections in the TreeView"/>
 
 ---------------
 
@@ -359,7 +359,7 @@ Symbols Tree: Collapse Tree View Items.
 "Expand/Collapse all items on when opening or refreshing the TreeView."
 ```
 
-In your settings.json, look for this:  ```"symbol-jump-and-select.makeTreeView": "expandOnOpen"  // or "collapseOnOpen"```
+In your settings.json, look for this:  ```"symbolsTree.makeTreeView": "expandOnOpen"  // or "collapseOnOpen"```
 
 Hitting the refresh button on the TreeView will expand or collapse all tree items according to this setting.  So you could hit the `CollapseAll` button and then `Refresh` to re-expand the tree (if `expandOnOpen`).
 
