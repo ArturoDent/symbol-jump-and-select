@@ -17,7 +17,6 @@ export async function getTypescript() {
 
 export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<NodePickItems> {
 
-  // const ts = await getTypescript();  // lazy load only if get here
   let ts: typeof import("typescript");
 
   try {
@@ -39,7 +38,6 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
 
   const out: NodePickItems = [];
 
-  // function extractPropertyChain(expr: ts.Expression): string[] {
   function extractPropertyChain(expr: TS.Expression): string[] {
     const chain: string[] = [];
     let current: TS.Expression = expr;
@@ -318,6 +316,16 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
             const leftStart = doc.positionAt(left.getStart(sourceFile));
             const leftEnd = doc.positionAt(left.getEnd());
 
+            const selectionRange = ts.isPropertyAccessExpression(left) ?
+              new Range(
+                    doc.positionAt(left.name.getStart(sourceFile)),
+                    doc.positionAt(left.name.getStart(sourceFile))
+                  ) :
+              new Range(
+                  doc.positionAt(left.getStart(sourceFile)),
+                  doc.positionAt(left.getStart(sourceFile))
+            );
+
             out.push({
               name: fullName,
               kind: i === chain.length - 1 ? "method" : "object",
@@ -325,10 +333,11 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
               pos: left.getStart(sourceFile),
               range: new Range(leftStart, leftEnd),
 
-              selectionRange: (left as TS.PropertyAccessExpression).name ?
-                new Range(doc.positionAt((left as TS.PropertyAccessExpression).name.getStart(sourceFile)), doc.positionAt((left as TS.PropertyAccessExpression).name.getStart(sourceFile)))
-                : new Range(doc.positionAt((left as TS.PropertyAccessExpression).getStart(sourceFile)), doc.positionAt((left as TS.PropertyAccessExpression).getStart(sourceFile))),
+              // selectionRange: (left as TS.PropertyAccessExpression).name ?
+              //   new Range(doc.positionAt((left as TS.PropertyAccessExpression).name.getStart(sourceFile)), doc.positionAt((left as TS.PropertyAccessExpression).name.getStart(sourceFile)))
+              //   : new Range(doc.positionAt((left as TS.PropertyAccessExpression).getStart(sourceFile)), doc.positionAt((left as TS.PropertyAccessExpression).getStart(sourceFile))),
 
+              selectionRange,
               label: segment,
               detail: i === chain.length - 1
                 ? innerName
@@ -342,7 +351,17 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
 
         // Append (anonymous) if function is unnamed
         if (!innerName) {
-          const {asString} = getParameterDetails(ts, sourceFile, right.parameters, doc);
+          const { asString } = getParameterDetails(ts, sourceFile, right.parameters, doc);
+              
+          const selectionRange = ts.isPropertyAccessExpression(left) ?
+            new Range(
+                  doc.positionAt(left.name.getStart(sourceFile)),
+                  doc.positionAt(left.name.getStart(sourceFile))
+                ) :
+            new Range(
+                doc.positionAt(left.getStart(sourceFile)),
+                doc.positionAt(left.getStart(sourceFile))
+          );
 
           out.push({
             name: `${fullName} (anonymous)`,
@@ -352,10 +371,11 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
             // end: right.getEnd(),
 
             range: new Range(doc.positionAt(left.getStart(sourceFile)), doc.positionAt(left.getEnd())),
-            selectionRange: (left as TS.PropertyAccessExpression).name ?
-              new Range(doc.positionAt((left as TS.PropertyAccessExpression).name.getStart(sourceFile)), doc.positionAt((left as TS.PropertyAccessExpression).name.getStart(sourceFile)))
-              : new Range(doc.positionAt((left as TS.PropertyAccessExpression).getStart(sourceFile)), doc.positionAt((left as TS.PropertyAccessExpression).getStart(sourceFile))),
+            // selectionRange: (left as TS.PropertyAccessExpression).name ?
+            //   new Range(doc.positionAt((left as TS.PropertyAccessExpression).name.getStart(sourceFile)), doc.positionAt((left as TS.PropertyAccessExpression).name.getStart(sourceFile)))
+            //   : new Range(doc.positionAt((left as TS.PropertyAccessExpression).getStart(sourceFile)), doc.positionAt((left as TS.PropertyAccessExpression).getStart(sourceFile))),
 
+            selectionRange,
             label: `( ${asString} ) =>  `,
             detail: "anonymous function",
             parent: depth ? node.parent : undefined
@@ -410,6 +430,16 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
       const leftStart = doc.positionAt(left.getStart(sourceFile));
       const leftEnd = doc.positionAt(left.getEnd());
 
+      const selectionRange = ts.isPropertyAccessExpression(left) ?
+        new Range(
+              doc.positionAt(left.name.getStart(sourceFile)),
+              doc.positionAt(left.name.getStart(sourceFile))
+            ) :
+        new Range(
+            doc.positionAt(left.getStart(sourceFile)),
+            doc.positionAt(left.getStart(sourceFile))
+      );
+
       out.push({
         name: fullName,
         kind: "property",
@@ -417,9 +447,11 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
         pos: left.getStart(sourceFile),
 
         range: new Range(leftStart, leftEnd),
-        selectionRange: (left as TS.PropertyAccessExpression).name ?
-          new Range(doc.positionAt((left as TS.PropertyAccessExpression).name.getStart(sourceFile)), doc.positionAt((left as TS.PropertyAccessExpression).name.getStart(sourceFile)))
-          : new Range(doc.positionAt((left as TS.PropertyAccessExpression).getStart(sourceFile)), doc.positionAt((left as TS.PropertyAccessExpression).getStart(sourceFile))),
+        // selectionRange: (left as TS.PropertyAccessExpression).name ?
+        //   new Range(doc.positionAt((left as TS.PropertyAccessExpression).name.getStart(sourceFile)), doc.positionAt((left as TS.PropertyAccessExpression).name.getStart(sourceFile)))
+        //   : new Range(doc.positionAt((left as TS.PropertyAccessExpression).getStart(sourceFile)), doc.positionAt((left as TS.PropertyAccessExpression).getStart(sourceFile))),
+
+        selectionRange,
 
         label: `${chain.at(-1)}: ${value}`,
         detail: "object property",
@@ -448,33 +480,30 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
       const name = node.name.text;
       const init = node.initializer;
 
-      // if (ts.isArrowFunction(init as ts.Node)) {
       if (init && ts.isArrowFunction(init)) {
         kind = "arrow";
         // label = `${name} ( ${getParameterDetails(ts, sourceFile, (init as ts.FunctionExpression).parameters, doc).asString} )`;
         label = `${name} ( ${getParameterDetails(ts, sourceFile, (init).parameters, doc).asString} )`;
         detail = "variable ➜ arrow function";
       }
-      // else if (ts.isFunctionExpression(init as ts.Node)) {
       else if (init && ts.isFunctionExpression(init)) {
         kind = "function";
-        label = `${name} ( ${getParameterDetails(ts, sourceFile, (init as TS.FunctionExpression).parameters, doc).asString} )`;
+        // label = `${name} ( ${getParameterDetails(ts, sourceFile, (init as TS.FunctionExpression).parameters, doc).asString} )`;
+        label = `${name} ( ${getParameterDetails(ts, sourceFile, init.parameters, doc).asString} )`;
         detail = "variable ➜ function";
       }
-      // else if (ts.isPropertyAccessExpression(init as ts.Node)) {
       else if (init && ts.isPropertyAccessExpression(init)) {
         kind = "property";
         label = `${name} = ${init?.getText(sourceFile)}`;
         detail = "variable ➜ object property";
       }
-      // else if (ts.isCallExpression(init as ts.Node) && ts.isPropertyAccessExpression((init as ts.CallExpression).expression)) {
-      else if (init && ts.isCallExpression(init) && ts.isPropertyAccessExpression((init as TS.CallExpression).expression)) {
+      // else if (init && ts.isCallExpression(init) && ts.isPropertyAccessExpression((init as TS.CallExpression).expression)) {
+      else if (init && ts.isCallExpression(init) && ts.isPropertyAccessExpression(init.expression)) {
         kind = "call";
 
         label = `${name} = ${init?.getText(sourceFile)}`;
         detail = "variable ➜ method call";
       }
-      // else if (ts.isObjectLiteralExpression(init as ts.Node)) {
       else if (init && ts.isObjectLiteralExpression(init)) {
         isObj = true;
         kind = "object";
@@ -484,7 +513,7 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
       else {
         kind = "variable";
         label = `${name} = ${init?.getText(sourceFile)}`;
-        detail = (init && init?.kind === 215) ? "variable ➜ new()" : "variable";
+        detail = (init && ts.isNewExpression(init)) ? "variable ➜ new()" : "variable";  //  isNewExpression = 215
       }
 
       out.push({
@@ -509,8 +538,8 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
         );
       }
 
-      if (isObj) { // check if the object is empty
-        visitWithDepth(init as TS.Node, depth + 1, [...container, name]);
+      if (init && isObj) { // check if the object is empty
+        visitWithDepth(init, depth + 1, [...container, name]);
       }
       return;
     }
@@ -520,22 +549,30 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
       node.properties.forEach(prop => {
 
         if ((ts.isPropertyAssignment(prop) || ts.isMethodDeclaration(prop)) && ts.isIdentifier(prop.name)) {
-          let init;
+          let init: TS.Expression | undefined;
           const name = prop.name.text;
           if (ts.isPropertyAssignment(prop)) init = prop.initializer;
 
           const isMethod = ts.isMethodDeclaration(prop);
-          // const isFunc = ts.isArrowFunction(init as ts.Node) || ts.isFunctionExpression(init as ts.Node);
           const isFunc =  // init !== undefined
             !!init &&
             (ts.isArrowFunction(init) || ts.isFunctionExpression(init));
 
-          const isObj = ts.isObjectLiteralExpression(init as TS.Node);  // nested objects
+          const isObj = !!init && ts.isObjectLiteralExpression(init);  // nested objects
           const isVar = !isFunc && !isObj && !isMethod;
 
-          let initText, paramsText;
+          let initText;
+          let paramsText: string | undefined;
+
           if (isVar) initText = init?.getText(sourceFile);
-          else if (isFunc) paramsText = getParameterDetails(ts, sourceFile, (init as TS.FunctionExpression).parameters, doc).asString;
+          else if (init && (ts.isArrowFunction(init) || ts.isFunctionExpression(init))) {
+            paramsText = getParameterDetails(
+              ts,
+              sourceFile,
+              init.parameters,
+              doc
+            ).asString;
+          }
           else if (isMethod) paramsText = getParameterDetails(ts, sourceFile, prop.parameters, doc).asString;
 
           out.push({
@@ -561,7 +598,8 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
               visitWithDepth(stmt, depth + 1, [...container, name])
             );
           }
-          else if (isMethod && prop.body && ts.isBlock(prop.body as TS.Node)) {
+          // else if (isMethod && prop.body && ts.isBlock(prop.body as TS.Node)) {
+          else if (isMethod && prop.body) {
             prop.body.statements.forEach(stmt =>
               visitWithDepth(stmt, depth + 1, [...container, name])
             );
