@@ -392,7 +392,6 @@ So this extension will determine if those 'variables' are in fact 'functions' an
 
 1. Switching rapidly between editors may result in the TreeView getting out of sync and not showing the correct TreeVew.  Cancelling the TreeView debounced refresh doesn't work. Refreshing the TreeView with the <img src="./icons/refresh.jpg" width="16" height="16" alt="Symbols Tree refresh icon"/> should fix that.  
 2. Starting vscode (or re-loading it) with a .json file as the current editor may result in only some of the json file's symbols being shown in the TreeView (it only seems to happen to me with launch.json and not other json files).  
-3.  "expandOnOpen" not working as of v0.5.0.  
 
 ## TODO
 

@@ -68,7 +68,7 @@
         "title": "Symbols Tree",
         "additionalProperties": false,
         "properties": {
-          "symbolsTree.collapseViewItems": {
+          "symbolsTree.collapseTreeViewItems": {
             "type": "string",
             "enum": [
               "expandOnOpen",
