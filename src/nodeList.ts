@@ -1,33 +1,33 @@
-import ts from "typescript";
-import {TextDocument, Range, TreeItem, TreeItemCollapsibleState} from "vscode";
+// import ts from "typescript";
+import {window, TextDocument, Range, TreeItem, TreeItemCollapsibleState} from "vscode";
 import type {NodePickItem, NodePickItems, NodeTreeItem, SymbolNode} from './types';
 import * as Globals from './myGlobals';
 
-// let tsModulePromise: Promise<typeof import("typescript")> | null = null;
+let tsModulePromise: Promise<typeof import("typescript")> | null = null;
 import type * as TS from "typescript";
 
 
-// export async function getTypescript() {
-//   if (!tsModulePromise) {
-//     tsModulePromise = import("typescript");
-//   }
-//   return tsModulePromise;
-// }
+export async function getTypescript() {
+  if (!tsModulePromise) {
+    tsModulePromise = import("typescript");
+  }
+  return tsModulePromise;
+}
 
 
 export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<NodePickItems> {
 
   // const ts = await getTypescript();  // lazy load only if get here
-  // let ts: typeof import("typescript");
+  let ts: typeof import("typescript");
 
-  // try {
-  //   ts = await getTypescript();
-  // } catch (err) {
-  //   window.showErrorMessage(
-  //     `Failed to load the TypeScript compiler: ${err}`
-  //   );
-  //   return [];  // could fallback to non-tsc objects here
-  // }
+  try {
+    ts = await getTypescript();
+  } catch (err) {
+    window.showErrorMessage(
+      `Failed to load the TypeScript compiler: ${err}`
+    );
+    return [];  // could fallback to non-tsc objects here
+  }
 
   const sourceFile = ts.createSourceFile(
     doc.fileName,
@@ -70,7 +70,8 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
 
   // add interface, enum, constant, string, number, boolean, array, key
 
-  function visitWithDepth(node: TS.Node, depth: number, container: string[]) {
+  function visitWithDepth(node: TS.Node | undefined, depth: number, container: string[]) {
+    if (!node) return;
     if (visited.has(node)) return;
     visited.add(node);
 
@@ -447,28 +448,34 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
       const name = node.name.text;
       const init = node.initializer;
 
-      if (ts.isArrowFunction(init as TS.Node)) {
+      // if (ts.isArrowFunction(init as ts.Node)) {
+      if (init && ts.isArrowFunction(init)) {
         kind = "arrow";
-        label = `${name} ( ${getParameterDetails(ts, sourceFile, (init as TS.FunctionExpression).parameters, doc).asString} )`;
+        // label = `${name} ( ${getParameterDetails(ts, sourceFile, (init as ts.FunctionExpression).parameters, doc).asString} )`;
+        label = `${name} ( ${getParameterDetails(ts, sourceFile, (init).parameters, doc).asString} )`;
         detail = "variable ➜ arrow function";
       }
-      else if (ts.isFunctionExpression(init as TS.Node)) {
+      // else if (ts.isFunctionExpression(init as ts.Node)) {
+      else if (init && ts.isFunctionExpression(init)) {
         kind = "function";
         label = `${name} ( ${getParameterDetails(ts, sourceFile, (init as TS.FunctionExpression).parameters, doc).asString} )`;
         detail = "variable ➜ function";
       }
-      else if (ts.isPropertyAccessExpression(init as TS.Node)) {
+      // else if (ts.isPropertyAccessExpression(init as ts.Node)) {
+      else if (init && ts.isPropertyAccessExpression(init)) {
         kind = "property";
         label = `${name} = ${init?.getText(sourceFile)}`;
         detail = "variable ➜ object property";
       }
-      else if (ts.isCallExpression(init as TS.Node) && ts.isPropertyAccessExpression((init as TS.CallExpression).expression)) {
+      // else if (ts.isCallExpression(init as ts.Node) && ts.isPropertyAccessExpression((init as ts.CallExpression).expression)) {
+      else if (init && ts.isCallExpression(init) && ts.isPropertyAccessExpression((init as TS.CallExpression).expression)) {
         kind = "call";
 
         label = `${name} = ${init?.getText(sourceFile)}`;
         detail = "variable ➜ method call";
       }
-      else if (ts.isObjectLiteralExpression(init as TS.Node)) {
+      // else if (ts.isObjectLiteralExpression(init as ts.Node)) {
+      else if (init && ts.isObjectLiteralExpression(init)) {
         isObj = true;
         kind = "object";
         label = name;
@@ -477,7 +484,7 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
       else {
         kind = "variable";
         label = `${name} = ${init?.getText(sourceFile)}`;
-        detail = (init?.kind === 215) ? "variable ➜ new()" : "variable";
+        detail = (init && init?.kind === 215) ? "variable ➜ new()" : "variable";
       }
 
       out.push({
@@ -518,7 +525,11 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
           if (ts.isPropertyAssignment(prop)) init = prop.initializer;
 
           const isMethod = ts.isMethodDeclaration(prop);
-          const isFunc = ts.isArrowFunction(init as TS.Node) || ts.isFunctionExpression(init as TS.Node);
+          // const isFunc = ts.isArrowFunction(init as ts.Node) || ts.isFunctionExpression(init as ts.Node);
+          const isFunc =  // init !== undefined
+            !!init &&
+            (ts.isArrowFunction(init) || ts.isFunctionExpression(init));
+
           const isObj = ts.isObjectLiteralExpression(init as TS.Node);  // nested objects
           const isVar = !isFunc && !isObj && !isMethod;
 
