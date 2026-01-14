@@ -1,24 +1,48 @@
-import ts from "typescript";
-import {TextDocument, Range, TreeItem, TreeItemCollapsibleState} from "vscode";
+// import ts from "typescript";
+import {window, TextDocument, Range, TreeItem, TreeItemCollapsibleState} from "vscode";
 import type {NodePickItem, NodePickItems, NodeTreeItem, SymbolNode} from './types';
 import * as Globals from './myGlobals';
 
+let tsModulePromise: Promise<typeof import("typescript")> | null = null;
+import type * as TS from "typescript";
+
+
+export async function getTypescript() {
+  if (!tsModulePromise) {
+    tsModulePromise = import("typescript");
+  }
+  return tsModulePromise;
+}
+
 
 export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<NodePickItems> {
+
+  // const ts = await getTypescript();  // lazy load only if get here
+  let ts: typeof import("typescript");
+
+  try {
+    ts = await getTypescript();
+  } catch (err) {
+    window.showErrorMessage(
+      `Failed to load the TypeScript compiler: ${err}`
+    );
+    return [];  // could fallback to non-tsc objects here
+  }
 
   const sourceFile = ts.createSourceFile(
     doc.fileName,
     doc.getText(),
     ts.ScriptTarget.Latest,
-    // the below IS USED and important, although it is in a comment !!
+    // the below IS USED and IMPORTANT, although it is in a comment !!
     /* setParentNodes */ true
   );
 
   const out: NodePickItems = [];
 
-  function extractPropertyChain(expr: ts.Expression): string[] {
+  // function extractPropertyChain(expr: ts.Expression): string[] {
+  function extractPropertyChain(expr: TS.Expression): string[] {
     const chain: string[] = [];
-    let current: ts.Expression = expr;
+    let current: TS.Expression = expr;
 
     while (ts.isPropertyAccessExpression(current) || ts.isElementAccessExpression(current)) {
       if (ts.isPropertyAccessExpression(current)) {
@@ -42,23 +66,23 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
   }
 
   const container: string[] = [];
-  const visited = new WeakSet<ts.Node>();
+  const visited = new WeakSet<TS.Node>();
 
   // add interface, enum, constant, string, number, boolean, array, key
 
-  function visitWithDepth(node: ts.Node, depth: number, container: string[]) {
+  function visitWithDepth(node: TS.Node, depth: number, container: string[]) {
     if (visited.has(node)) return;
     visited.add(node);
 
     // ts.isSourceFile(node)  // true for SourceFile
 
-    const nameFrom = (id: ts.Identifier | ts.StringLiteral | ts.NumericLiteral) => id.text;
+    const nameFrom = (id: TS.Identifier | TS.StringLiteral | TS.NumericLiteral) => id.text;
     const fullName = (name: string) => [...container, name].join(".");
 
     if (ts.isFunctionDeclaration(node) && node.name) {
       const name = node.name.text;
       const newContainer = [...container, name];
-      const {asString} = getParameterDetails(sourceFile, node.parameters, doc);
+      const {asString} = getParameterDetails(ts, sourceFile, node.parameters, doc);
 
       out.push({
         name: newContainer.join("."),
@@ -82,7 +106,7 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
     // Arrow functions and function expressions
     else if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {
       const name = "(anonymous)";
-      const {asString} = getParameterDetails(sourceFile, node.parameters, doc);
+      const {asString} = getParameterDetails(ts, sourceFile, node.parameters, doc);
 
       out.push({
         name: fullName(name),
@@ -203,7 +227,7 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
 
         // class constructor
         if (ts.isConstructorDeclaration(member)) {
-          const {asString} = getParameterDetails(sourceFile, member.parameters, doc);
+          const {asString} = getParameterDetails(ts, sourceFile, member.parameters, doc);
 
           out.push({
             name: [...classContainer, "constructor"].join("."),
@@ -225,7 +249,7 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
         // class methods
         if (ts.isMethodDeclaration(member) && ts.isIdentifier(member.name)) {
           const methodName = member.name.text;
-          const {asString} = getParameterDetails(sourceFile, member.parameters, doc);
+          const {asString} = getParameterDetails(ts, sourceFile, member.parameters, doc);
 
           out.push({
             name: [...classContainer, methodName].join("."),
@@ -300,9 +324,9 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
               pos: left.getStart(sourceFile),
               range: new Range(leftStart, leftEnd),
 
-              selectionRange: (left as ts.PropertyAccessExpression).name ?
-                new Range(doc.positionAt((left as ts.PropertyAccessExpression).name.getStart(sourceFile)), doc.positionAt((left as ts.PropertyAccessExpression).name.getStart(sourceFile)))
-                : new Range(doc.positionAt((left as ts.PropertyAccessExpression).getStart(sourceFile)), doc.positionAt((left as ts.PropertyAccessExpression).getStart(sourceFile))),
+              selectionRange: (left as TS.PropertyAccessExpression).name ?
+                new Range(doc.positionAt((left as TS.PropertyAccessExpression).name.getStart(sourceFile)), doc.positionAt((left as TS.PropertyAccessExpression).name.getStart(sourceFile)))
+                : new Range(doc.positionAt((left as TS.PropertyAccessExpression).getStart(sourceFile)), doc.positionAt((left as TS.PropertyAccessExpression).getStart(sourceFile))),
 
               label: segment,
               detail: i === chain.length - 1
@@ -317,7 +341,7 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
 
         // Append (anonymous) if function is unnamed
         if (!innerName) {
-          const {asString} = getParameterDetails(sourceFile, right.parameters, doc);
+          const {asString} = getParameterDetails(ts, sourceFile, right.parameters, doc);
 
           out.push({
             name: `${fullName} (anonymous)`,
@@ -327,9 +351,9 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
             // end: right.getEnd(),
 
             range: new Range(doc.positionAt(left.getStart(sourceFile)), doc.positionAt(left.getEnd())),
-            selectionRange: (left as ts.PropertyAccessExpression).name ?
-              new Range(doc.positionAt((left as ts.PropertyAccessExpression).name.getStart(sourceFile)), doc.positionAt((left as ts.PropertyAccessExpression).name.getStart(sourceFile)))
-              : new Range(doc.positionAt((left as ts.PropertyAccessExpression).getStart(sourceFile)), doc.positionAt((left as ts.PropertyAccessExpression).getStart(sourceFile))),
+            selectionRange: (left as TS.PropertyAccessExpression).name ?
+              new Range(doc.positionAt((left as TS.PropertyAccessExpression).name.getStart(sourceFile)), doc.positionAt((left as TS.PropertyAccessExpression).name.getStart(sourceFile)))
+              : new Range(doc.positionAt((left as TS.PropertyAccessExpression).getStart(sourceFile)), doc.positionAt((left as TS.PropertyAccessExpression).getStart(sourceFile))),
 
             label: `( ${asString} ) =>  `,
             detail: "anonymous function",
@@ -376,7 +400,7 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
         // doesn't emit for name and year on separate lines
       }
 
-      if (isThisPropertyInConstructor(left)) return;
+      if (isThisPropertyInConstructor(ts, left)) return;
 
       const chain = extractPropertyChain(left); // e.g. ['my'Object, 'prop1', 'prop1Func']
       const value = right.getText(sourceFile);
@@ -392,9 +416,9 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
         pos: left.getStart(sourceFile),
 
         range: new Range(leftStart, leftEnd),
-        selectionRange: (left as ts.PropertyAccessExpression).name ?
-          new Range(doc.positionAt((left as ts.PropertyAccessExpression).name.getStart(sourceFile)), doc.positionAt((left as ts.PropertyAccessExpression).name.getStart(sourceFile)))
-          : new Range(doc.positionAt((left as ts.PropertyAccessExpression).getStart(sourceFile)), doc.positionAt((left as ts.PropertyAccessExpression).getStart(sourceFile))),
+        selectionRange: (left as TS.PropertyAccessExpression).name ?
+          new Range(doc.positionAt((left as TS.PropertyAccessExpression).name.getStart(sourceFile)), doc.positionAt((left as TS.PropertyAccessExpression).name.getStart(sourceFile)))
+          : new Range(doc.positionAt((left as TS.PropertyAccessExpression).getStart(sourceFile)), doc.positionAt((left as TS.PropertyAccessExpression).getStart(sourceFile))),
 
         label: `${chain.at(-1)}: ${value}`,
         detail: "object property",
@@ -423,28 +447,28 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
       const name = node.name.text;
       const init = node.initializer;
 
-      if (ts.isArrowFunction(init as ts.Node)) {
+      if (ts.isArrowFunction(init as TS.Node)) {
         kind = "arrow";
-        label = `${name} ( ${getParameterDetails(sourceFile, (init as ts.FunctionExpression).parameters, doc).asString} )`;
+        label = `${name} ( ${getParameterDetails(ts, sourceFile, (init as TS.FunctionExpression).parameters, doc).asString} )`;
         detail = "variable ➜ arrow function";
       }
-      else if (ts.isFunctionExpression(init as ts.Node)) {
+      else if (ts.isFunctionExpression(init as TS.Node)) {
         kind = "function";
-        label = `${name} ( ${getParameterDetails(sourceFile, (init as ts.FunctionExpression).parameters, doc).asString} )`;
+        label = `${name} ( ${getParameterDetails(ts, sourceFile, (init as TS.FunctionExpression).parameters, doc).asString} )`;
         detail = "variable ➜ function";
       }
-      else if (ts.isPropertyAccessExpression(init as ts.Node)) {
+      else if (ts.isPropertyAccessExpression(init as TS.Node)) {
         kind = "property";
         label = `${name} = ${init?.getText(sourceFile)}`;
         detail = "variable ➜ object property";
       }
-      else if (ts.isCallExpression(init as ts.Node) && ts.isPropertyAccessExpression((init as ts.CallExpression).expression)) {
+      else if (ts.isCallExpression(init as TS.Node) && ts.isPropertyAccessExpression((init as TS.CallExpression).expression)) {
         kind = "call";
 
         label = `${name} = ${init?.getText(sourceFile)}`;
         detail = "variable ➜ method call";
       }
-      else if (ts.isObjectLiteralExpression(init as ts.Node)) {
+      else if (ts.isObjectLiteralExpression(init as TS.Node)) {
         isObj = true;
         kind = "object";
         label = name;
@@ -479,7 +503,7 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
       }
 
       if (isObj) { // check if the object is empty
-        visitWithDepth(init as ts.Node, depth + 1, [...container, name]);
+        visitWithDepth(init as TS.Node, depth + 1, [...container, name]);
       }
       return;
     }
@@ -494,14 +518,14 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
           if (ts.isPropertyAssignment(prop)) init = prop.initializer;
 
           const isMethod = ts.isMethodDeclaration(prop);
-          const isFunc = ts.isArrowFunction(init as ts.Node) || ts.isFunctionExpression(init as ts.Node);
-          const isObj = ts.isObjectLiteralExpression(init as ts.Node);  // nested objects
+          const isFunc = ts.isArrowFunction(init as TS.Node) || ts.isFunctionExpression(init as TS.Node);
+          const isObj = ts.isObjectLiteralExpression(init as TS.Node);  // nested objects
           const isVar = !isFunc && !isObj && !isMethod;
 
           let initText, paramsText;
           if (isVar) initText = init?.getText(sourceFile);
-          else if (isFunc) paramsText = getParameterDetails(sourceFile, (init as ts.FunctionExpression).parameters, doc).asString;
-          else if (isMethod) paramsText = getParameterDetails(sourceFile, prop.parameters, doc).asString;
+          else if (isFunc) paramsText = getParameterDetails(ts, sourceFile, (init as TS.FunctionExpression).parameters, doc).asString;
+          else if (isMethod) paramsText = getParameterDetails(ts, sourceFile, prop.parameters, doc).asString;
 
           out.push({
             name: fullName(name),
@@ -522,11 +546,11 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
 
           // this handles let myVariable = { method1: function (inMethod1) { ...variables and properties in here...} }
           if (ts.isFunctionLike(init) && init.body && ts.isBlock(init.body)) {
-            init.body.statements.forEach((stmt: ts.Statement) =>
+            init.body.statements.forEach((stmt: TS.Statement) =>
               visitWithDepth(stmt, depth + 1, [...container, name])
             );
           }
-          else if (isMethod && prop.body && ts.isBlock(prop.body as ts.Node)) {
+          else if (isMethod && prop.body && ts.isBlock(prop.body as TS.Node)) {
             prop.body.statements.forEach(stmt =>
               visitWithDepth(stmt, depth + 1, [...container, name])
             );
@@ -549,7 +573,7 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
     // Call expressions:  simple("howdy") or myObject/myClass.method(arg1)
     else if (ts.isCallExpression(node)) {
       const expr = node.expression;
-      const {asString} = getParameterDetails(sourceFile, node.arguments, doc);
+      const {asString} = getParameterDetails(ts, sourceFile, node.arguments, doc);
       let name = '', propName = '', label = '', detail = '';
 
       if (ts.isPropertyAccessExpression(expr)) {   // for myObject/myClass.method(arg1)
@@ -584,7 +608,7 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
 
     // Return statements
     else if (ts.isReturnStatement(node)) {
-      const path = getAllEnclosingFunctionNames(node);
+      const path = getAllEnclosingFunctionNames(ts, node);
 
       out.push({
         name: "return",
@@ -606,17 +630,17 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
       return;
     }
 
-    // recursion
+    // recurse
     ts.forEachChild(node, child => visitWithDepth(child, depth, container));
   }
 
-  visitWithDepth(sourceFile, 0, container);
+  visitWithDepth(sourceFile, 0, container);  // the starting point 
 
   return out.sort((a, b) => a.pos - b.pos);
 }
 
 
-function getParameterDetails(sourceFile: ts.SourceFile, params: ts.NodeArray<ts.ParameterDeclaration | ts.Expression>, doc: TextDocument): {selectionRange: Range | undefined; asString: string;} {
+function getParameterDetails(ts: typeof import("typescript"), sourceFile: TS.SourceFile, params: TS.NodeArray<TS.ParameterDeclaration | TS.Expression>, doc: TextDocument): {selectionRange: Range | undefined; asString: string;} {
 
   let start, end;
   const asString = params.map(p => p.getText(sourceFile)).join(', ');
@@ -637,11 +661,11 @@ function getParameterDetails(sourceFile: ts.SourceFile, params: ts.NodeArray<ts.
 }
 
 
-function isThisPropertyInConstructor(node: ts.Node): boolean {
+function isThisPropertyInConstructor(ts: typeof import("typescript"), node: TS.Node): boolean {
   if (!ts.isPropertyAccessExpression(node)) return false;
   if (node.expression.kind !== ts.SyntaxKind.ThisKeyword) return false;
 
-  let current: ts.Node | undefined = node.parent;
+  let current: TS.Node | undefined = node.parent;
   while (current) {
     if (ts.isConstructorDeclaration(current)) {
       // Ensure this constructor belongs to a class
@@ -660,9 +684,9 @@ function isThisPropertyInConstructor(node: ts.Node): boolean {
  * Walks up from `node` and returns an array of all enclosing
  * function or method names, from outermost to innermost.
  */
-export function getAllEnclosingFunctionNames(node: ts.Node): string[] {
+export function getAllEnclosingFunctionNames(ts: typeof import("typescript"), node: TS.Node, ): string[] {
   const names: string[] = [];
-  let cur: ts.Node | undefined = node.parent;
+  let cur: TS.Node | undefined = node.parent;
 
   while (cur) {
     // Named function declaration: function foo() { … }
