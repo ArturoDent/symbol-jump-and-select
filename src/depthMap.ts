@@ -65,7 +65,7 @@ export async function filterDepthMap(arrowFunctionSymbols: DocumentSymbol[], sym
     let match = false;
 
     if (_Globals.isJSTS && (symMapHasFunction || symMapHasVariable)) {
-      if (symbol.kind === SymbolKind.Variable && arrowFunctionSymbols.length) {
+      if (symbol?.kind === SymbolKind.Variable && arrowFunctionSymbols.length) {
         let isArrowFunction = !!arrowFunctionSymbols.find((arrowFunction: DocumentSymbol) => {
           return arrowFunction.range.isEqual(symbol.range);
         });
@@ -77,7 +77,7 @@ export async function filterDepthMap(arrowFunctionSymbols: DocumentSymbol[], sym
       }
     }
 
-    if (!match && Object.values(symMap).includes(symbol.kind)) {
+    if (!match && Object.values(symMap).includes(symbol?.kind)) {
       mergedMap.set(symbol, depth);
       match = true;
     }
@@ -120,7 +120,7 @@ export async function unfilteredDepthMap(arrowFunctionSymbols: DocumentSymbol[],
 
   for await (const [symbol, depth] of symbolDepthMap) {
 
-    if (symbol.kind === SymbolKind.Variable && arrowFunctionSymbols && _Globals.isJSTS) {
+    if (symbol?.kind === SymbolKind.Variable && arrowFunctionSymbols && _Globals.isJSTS) {
       let isArrowFunction = !!arrowFunctionSymbols.find(arrowFunction => {
         return arrowFunction.range.isEqual(symbol.range);
       });
@@ -140,9 +140,9 @@ export async function unfilteredDepthMap(arrowFunctionSymbols: DocumentSymbol[],
  */
 function isRightKind(arrowFunctions: DocumentSymbol[], symbol: DocumentSymbol, symMap: SymMap, symMapHasFunction: boolean): boolean {
 
-  if (Object.values(symMap).includes(symbol.kind)) return true;
+  if (Object.values(symMap).includes(symbol?.kind)) return true;
 
-  else if (symbol.kind === SymbolKind.Variable && symMapHasFunction && arrowFunctions?.length && _Globals.isJSTS) {
+  else if (symbol?.kind === SymbolKind.Variable && symMapHasFunction && arrowFunctions?.length && _Globals.isJSTS) {
     let isArrowFunction = !!arrowFunctions.find(arrowFunction => {
       return arrowFunction.range.isEqual(symbol.range);
     });

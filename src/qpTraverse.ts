@@ -13,7 +13,7 @@ export function traverseSymbols(symbols: DocumentSymbol[], document: TextDocumen
   const symbolDepthMap = new Map();
 
   const visit = (symbol: DocumentSymbol, depth: number) => {
-    if (!symbol.detail.length && symbol.kind === SymbolKind.String) {
+    if (!symbol.detail.length && symbol?.kind === SymbolKind.String) {
       const text = document.getText(symbol.range);
       symbol.detail = text;
     }

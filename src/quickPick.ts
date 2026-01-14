@@ -348,7 +348,7 @@ export class SymbolPicker {
         // do a reverse mapping from symbol.kind -> "class", "function", etc.
         // description: ` (${mapKindToNameAndIconPath.get(symbol.kind)?.name})`, // var => arrow fn
         qpItems.push({
-          label: label + ` --- (${mapKindToNameAndIconPath.get(symbol.kind)?.name})`,
+          label: label + ` --- (${mapKindToNameAndIconPath.get(symbol?.kind)?.name})`,
           range: symbol.range,
           selectionRange: symbol.selectionRange,
           buttons

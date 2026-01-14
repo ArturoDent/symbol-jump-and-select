@@ -13,7 +13,7 @@ export async function filterDocNodes(kbSymbols: (keyof SymMap)[], docNodes: Node
 
   for await (const symbol of docNodes) {
 
-    if (Object.keys(symMap).includes(symbol.kind)) {
+    if (Object.keys(symMap).includes(symbol?.kind)) {
       filteredDocNodes.push(symbol);
     }
     else if (Object.keys(symMap).some(kbSymbol => symbol.detail.includes(kbSymbol))) {

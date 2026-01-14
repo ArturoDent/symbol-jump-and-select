@@ -292,7 +292,7 @@ export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<N
     else if (
       ts.isExpressionStatement(node) &&
       ts.isBinaryExpression(node.expression) &&
-      node.expression.operatorToken.kind === ts.SyntaxKind.EqualsToken
+      node.expression.operatorToken?.kind === ts.SyntaxKind.EqualsToken
     ) {
       const left = node.expression.left;
       const right = node.expression.right;
@@ -663,7 +663,7 @@ function getParameterDetails(ts: typeof import("typescript"), sourceFile: TS.Sou
 
 function isThisPropertyInConstructor(ts: typeof import("typescript"), node: TS.Node): boolean {
   if (!ts.isPropertyAccessExpression(node)) return false;
-  if (node.expression.kind !== ts.SyntaxKind.ThisKeyword) return false;
+  if (node.expression?.kind !== ts.SyntaxKind.ThisKeyword) return false;
 
   let current: TS.Node | undefined = node.parent;
   while (current) {

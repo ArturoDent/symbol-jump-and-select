@@ -344,7 +344,7 @@ export class SymbolsProvider implements vscode.TreeDataProvider<SymbolNode> {
       arguments: [element]
     };
     item.contextValue = 'symbolNode';
-    item.tooltip = `${element.name} — ${vscode.SymbolKind[element.kind]}`;
+    item.tooltip = `${element.name} — ${vscode.SymbolKind[element?.kind]}`;
     return item;
   }
 
@@ -499,9 +499,9 @@ const toSymbolNodesNodefromDocumentSymbols = (ds: SymbolNode[], uri: vscode.Uri)
   ds.map(s => ({
     // name: s.name,
     // name: (vscode.window.activeTextEditor && s.kind === vscode.SymbolKind.String) ? s.name + ': ' + vscode.window.activeTextEditor.document.getText(s.range) : s.name,
-    name: (vscode.window.activeTextEditor && s.kind === vscode.SymbolKind.String) ? vscode.window.activeTextEditor.document.getText(s.range) : s.name,
-    detail: SymbolsProvider.kindToName(s.kind),   // e.g., 'class", 'function'
-    kind: s.kind,
+    name: (vscode.window.activeTextEditor && s?.kind === vscode.SymbolKind.String) ? vscode.window.activeTextEditor.document.getText(s.range) : s.name,
+    detail: SymbolsProvider.kindToName(s?.kind),   // e.g., 'class", 'function'
+    kind: s?.kind,
     range: s.range,
     selectionRange: s.selectionRange,
     uri,
@@ -515,7 +515,7 @@ const toSymbolNodesFromNodeTreeItems = (ds: NodeTreeItem[], uri: vscode.Uri): Sy
   ds.map(s => ({
     name: s.node.label,
     detail: s.node.detail,
-    kind: SymbolsProvider.nameToKind(s.node.kind),
+    kind: SymbolsProvider.nameToKind(s.node?.kind),
     range: s.node.range,
     selectionRange: s.node.selectionRange,
     uri,
