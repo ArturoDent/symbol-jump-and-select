@@ -408,3 +408,5 @@ So this extension will determine if those 'variables' are in fact 'functions' an
 ## Release Notes
 
 * 0.2.0&emsp;First Release.
+
+* 0.5.0&emsp;Switched to esBuild.
