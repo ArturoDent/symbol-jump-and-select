@@ -1,33 +1,33 @@
-// import ts from "typescript";
-import {window, TextDocument, Range, TreeItem, TreeItemCollapsibleState} from "vscode";
+import ts from "typescript";
+import {TextDocument, Range, TreeItem, TreeItemCollapsibleState} from "vscode";
 import type {NodePickItem, NodePickItems, NodeTreeItem, SymbolNode} from './types';
 import * as Globals from './myGlobals';
 
-let tsModulePromise: Promise<typeof import("typescript")> | null = null;
+// let tsModulePromise: Promise<typeof import("typescript")> | null = null;
 import type * as TS from "typescript";
 
 
-export async function getTypescript() {
-  if (!tsModulePromise) {
-    tsModulePromise = import("typescript");
-  }
-  return tsModulePromise;
-}
+// export async function getTypescript() {
+//   if (!tsModulePromise) {
+//     tsModulePromise = import("typescript");
+//   }
+//   return tsModulePromise;
+// }
 
 
 export async function collectSymbolItemsFromSource(doc: TextDocument): Promise<NodePickItems> {
 
   // const ts = await getTypescript();  // lazy load only if get here
-  let ts: typeof import("typescript");
+  // let ts: typeof import("typescript");
 
-  try {
-    ts = await getTypescript();
-  } catch (err) {
-    window.showErrorMessage(
-      `Failed to load the TypeScript compiler: ${err}`
-    );
-    return [];  // could fallback to non-tsc objects here
-  }
+  // try {
+  //   ts = await getTypescript();
+  // } catch (err) {
+  //   window.showErrorMessage(
+  //     `Failed to load the TypeScript compiler: ${err}`
+  //   );
+  //   return [];  // could fallback to non-tsc objects here
+  // }
 
   const sourceFile = ts.createSourceFile(
     doc.fileName,
