@@ -2,60 +2,60 @@ import {
 	ExtensionContext, commands, window,
 	Range, Position, Selection, TextEditorRevealType, TreeView
 } from 'vscode';
-import {SymbolsProvider} from './tree';
-import {SymbolPicker, trackQuickPickVisibility} from './quickPick';
-import {showSimpleMessage} from './messages';
+import { SymbolsProvider } from './tree';
+import { SymbolPicker, trackQuickPickVisibility } from './quickPick';
+import { showSimpleMessage } from './messages';
 import * as Globals from './myGlobals';
 
 const _Globals = Globals.default;
 
-import type {SymMap, SymbolNode, ReturnSymbols} from './types';
-import {TreeCache} from './types';
+import type { SymMap, SymbolNode, ReturnSymbols } from './types';
+import { TreeCache } from './types';
 
 let symbolView: TreeView<SymbolNode>;
 
 
-export async function activate(context: ExtensionContext) {
+export async function activate( context: ExtensionContext ) {
 
-	await _Globals.init(context);
+	await _Globals.init( context );
 	let treeSymbolProvider: SymbolsProvider;
 
-	if (_Globals.makeTreeView) {
-		treeSymbolProvider = new SymbolsProvider(context);
-		symbolView = window.createTreeView('symbolsTree', {treeDataProvider: treeSymbolProvider, canSelectMany: true, showCollapseAll: false});
-		treeSymbolProvider.setView(symbolView);
+	if ( _Globals.makeTreeView ) {
+		treeSymbolProvider = new SymbolsProvider( context );
+		symbolView = window.createTreeView( 'symbolsTree', { treeDataProvider: treeSymbolProvider, canSelectMany: true, showCollapseAll: false } );
+		treeSymbolProvider.setView( symbolView );
 
 		// initialize context keys
-		await commands.executeCommand('setContext', 'symbolsTree.quickPickVisible', false);
+		await commands.executeCommand( 'setContext', 'symbolsTree.quickPickVisible', false );
 
-		await commands.executeCommand('setContext', 'symbolsTree.locked', false);
-		await commands.executeCommand('setContext', 'symbolsTree.filtered', false);
+		await commands.executeCommand( 'setContext', 'symbolsTree.locked', false );
+		await commands.executeCommand( 'setContext', 'symbolsTree.filtered', false );
 
-		await commands.executeCommand('setContext', 'symbolsTree.hasSelection', false);
-		await commands.executeCommand('setContext', 'symbolsTree.collapsed', false);
+		await commands.executeCommand( 'setContext', 'symbolsTree.hasSelection', false );
+		await commands.executeCommand( 'setContext', 'symbolsTree.collapsed', false );
 
-		context.subscriptions.push(symbolView);
-		context.subscriptions.push(treeSymbolProvider);
+		context.subscriptions.push( symbolView );
+		context.subscriptions.push( treeSymbolProvider );
 	}
 
 	// this could be delayed (and disposed of) in the symbolsTree.showQuickPick() command
-	const symbolPicker = new SymbolPicker(context);  // the QuickPick class
-	const qpTracker = trackQuickPickVisibility(symbolPicker.qp);
-	context.subscriptions.push(symbolPicker);
+	const symbolPicker = new SymbolPicker( context );  // the QuickPick class
+	const qpTracker = trackQuickPickVisibility( symbolPicker.qp );
+	context.subscriptions.push( symbolPicker );
 
 	context.subscriptions.push(    // register QuickPick commands
 
-		commands.registerCommand('symbolsTree.refreshQuickPick', async (args) => {
-			if (qpTracker.visible)
-				await commands.executeCommand("symbolsTree.showQuickPick");
-		}),
+		commands.registerCommand( 'symbolsTree.refreshQuickPick', async ( args ) => {
+			if ( qpTracker.visible )
+				await commands.executeCommand( "symbolsTree.showQuickPick" );
+		} ),
 
-		commands.registerCommand('symbolsTree.showQuickPick', async (args) => {
+		commands.registerCommand( 'symbolsTree.showQuickPick', async ( args ) => {
 
-			if (qpTracker.visible) return;  // noop if alreadu open
+			if ( qpTracker.visible ) return;  // noop if alreadu open
 
 			const document = window.activeTextEditor?.document;
-			if (!document) return;  // message?
+			if ( !document ) return;  // message?
 
 			// if (args.symbols) {  // excludes 'symbols': '' which is right
 			// 	query = removeEmptyStringsFromQuery(args.symbols);   // remove empty strings
@@ -68,20 +68,20 @@ export async function activate(context: ExtensionContext) {
 
 			let symbols: ReturnSymbols | undefined;
 
-			let kbSymbols: (keyof SymMap)[];
+			let kbSymbols: ( keyof SymMap )[];
 			// if triggered from Command Palette, args is undefined
 
-			if (!!args?.symbols && !Array.isArray(args?.symbols)) args.symbols = [args.symbols];
-			else if (Array.isArray(args?.symbols) && args?.symbols?.length === 0) args.symbols = undefined;
+			if ( !!args?.symbols && !Array.isArray( args?.symbols ) ) args.symbols = [args.symbols];
+			else if ( Array.isArray( args?.symbols ) && args?.symbols?.length === 0 ) args.symbols = undefined;
 			// default is all symbols
 
 			kbSymbols = args?.symbols || undefined;
 
 			// if "javascript" and useTSC setting = true
-			if (_Globals.isJSTS && _Globals.useTypescriptCompiler)
-				symbols = await symbolPicker.getNodes(kbSymbols, document); // NodePickItem[] | undefined = NodePickItems
+			if ( _Globals.isJSTS && _Globals.useTypescriptCompiler )
+				symbols = await symbolPicker.getNodes( kbSymbols, document ); // NodePickItem[] | undefined = NodePickItems
 			else
-				symbols = await symbolPicker.getSymbols(kbSymbols, document); // Map<DocumentSymbol, number> | undefined = SymbolMap
+				symbols = await symbolPicker.getSymbols( kbSymbols, document ); // Map<DocumentSymbol, number> | undefined = SymbolMap
 
 			// const query = removeEmptyStringsFromQuery(args);   // remove empty strings
 
@@ -91,73 +91,73 @@ export async function activate(context: ExtensionContext) {
 
 			// .length?
 			// if (symbols?.filteredSymbols) await symbolPicker.render(symbols.filteredSymbols, true);
-			if (symbols?.filteredSymbols) await symbolPicker.render(symbols, true);
-		}));
+			if ( symbols?.filteredSymbols ) await symbolPicker.render( symbols, true );
+		} ) );
 
 
 	context.subscriptions.push(    // register Tree View commands
 		// from keybinding only
-		commands.registerCommand('symbolsTree.applyFilter', async (args) => {
+		commands.registerCommand( 'symbolsTree.applyFilter', async ( args ) => {
 
-			if (!window.activeTextEditor) {
-				showSimpleMessage("There is no text editor open.");
+			if ( !window.activeTextEditor ) {
+				showSimpleMessage( "There is no text editor open." );
 				return;
 			}
 
 			// this handles both an empty array and an empty string
 			// but not an array with only an empty string member, 
 			// that is handled in removeEmptyStringsFromQuery()
-			if (!args || !args.length) {
-				showSimpleMessage("You need an 'args' option in your 'symbolsTree.applyFilter' keybinding. Opening a QuickInput to get your filter.");
-				await commands.executeCommand('symbolsTree.getFilter');
+			if ( !args || !args.length ) {
+				showSimpleMessage( "You need an 'args' option in your 'symbolsTree.applyFilter' keybinding. Opening a QuickInput to get your filter." );
+				await commands.executeCommand( 'symbolsTree.getFilter' );
 				return;
 			}
 
-			const query = removeEmptyStringsFromQuery(args);   // remove empty strings
+			const query = removeEmptyStringsFromQuery( args );   // remove empty strings
 
-			if (!query?.length) {
-				showSimpleMessage("There is no query in your keybinding after removing empty strings.");
+			if ( !query?.length ) {
+				showSimpleMessage( "There is no query in your keybinding after removing empty strings." );
 			}
 			else {
-				await treeSymbolProvider.refresh(query, TreeCache.UseAllNodesIgnoreFilter);
+				await treeSymbolProvider.refresh( query, TreeCache.UseAllNodesIgnoreFilter );
 			}
-		}),
+		} ),
 
-		commands.registerCommand('symbolsTree.refreshTree', async () => {
+		commands.registerCommand( 'symbolsTree.refreshTree', async () => {
 
 			// refresh will unlock if locked
-			if (SymbolsProvider.locked) {
+			if ( SymbolsProvider.locked ) {
 				SymbolsProvider.locked = false;
-				await commands.executeCommand('setContext', 'symbolsTree.locked', false);
+				await commands.executeCommand( 'setContext', 'symbolsTree.locked', false );
 				SymbolsProvider.lockedUri = undefined;
-				treeSymbolProvider.setTitle("");
+				treeSymbolProvider.setTitle( "" );
 			}
 
-			await treeSymbolProvider.refresh('', TreeCache.IgnoreFilterAndAllNodes);  // true = ignoreCache
+			await treeSymbolProvider.refresh( '', TreeCache.IgnoreFilterAndAllNodes );  // true = ignoreCache
 
-			if (_Globals.collapseTreeViewItems === "expandOnOpen") {
+			if ( _Globals.collapseTreeViewItems === "expandOnOpen" ) {
 				await treeSymbolProvider.expandAll();
-				await commands.executeCommand('setContext', 'symbolsTree.collapsed', false);
+				await commands.executeCommand( 'setContext', 'symbolsTree.collapsed', false );
 
 				// reveal where cursor is ?
 				// await symbolProvider.expandMiddleSymbol();
 			}
 			else {
-				await commands.executeCommand('workbench.actions.treeView.symbolsTree.collapseAll');
-				await commands.executeCommand('setContext', 'symbolsTree.collapsed', true);
+				await commands.executeCommand( 'workbench.actions.treeView.symbolsTree.collapseAll' );
+				await commands.executeCommand( 'setContext', 'symbolsTree.collapsed', true );
 				// await symbolProvider.expandMiddleSymbol();
 			}
-		}),
+		} ),
 
-		commands.registerCommand('symbolsTree.lock', async () => {
-			await treeSymbolProvider.setLock(true);
-		}),
+		commands.registerCommand( 'symbolsTree.lock', async () => {
+			await treeSymbolProvider.setLock( true );
+		} ),
 
-		commands.registerCommand('symbolsTree.unlock', async () => {
-			await treeSymbolProvider.setLock(false);
-		}),
+		commands.registerCommand( 'symbolsTree.unlock', async () => {
+			await treeSymbolProvider.setLock( false );
+		} ),
 
-		commands.registerCommand('symbolsTree.getFilter', async () => {
+		commands.registerCommand( 'symbolsTree.getFilter', async () => {
 
 			// to make a keybinding that focuses and opens a find input
 			// undefined is not allowed but works
@@ -169,139 +169,139 @@ export async function activate(context: ExtensionContext) {
 			// open the QuickInput and create a filtered TreeItem[]
 			let query = await window.showInputBox();
 
-			if (!query?.length) {
-				showSimpleMessage("There is no query from your input after removing empty strings.");
+			if ( !query?.length ) {
+				showSimpleMessage( "There is no query from your input after removing empty strings." );
 				return;
 			}
 
 			// handle "case && call" => do successive searches, not implemented yet
 			// handle "class || rex"  => ["class", "rex"] // if query contains "||" split on " || "
 			// handle "class,rex" treat as an OR
-			const orRE = new RegExp("\\s*\\|\\|\\s*");
-			const commaRE = new RegExp("\\s*,\\s*");
+			const orRE = new RegExp( "\\s*\\|\\|\\s*" );
+			const commaRE = new RegExp( "\\s*,\\s*" );
 
-			if (query?.includes('||')) finalQuery = query.split(orRE);
-			else if (query?.includes(',')) finalQuery = query.split(commaRE);
+			if ( query?.includes( '||' ) ) finalQuery = query.split( orRE );
+			else if ( query?.includes( ',' ) ) finalQuery = query.split( commaRE );
 			else finalQuery = query;
 
-			if (finalQuery.length) {
+			if ( finalQuery.length ) {
 
 				// finalQuery can include an empty string if input 'class ||  '
-				const query = removeEmptyStringsFromQuery(finalQuery);   // remove empty strings
-				if (query?.length) await treeSymbolProvider.refresh(query, TreeCache.IgnoreFilter);
-				else showSimpleMessage("There is no query from your input after removing empty strings.");
+				const query = removeEmptyStringsFromQuery( finalQuery );   // remove empty strings
+				if ( query?.length ) await treeSymbolProvider.refresh( query, TreeCache.IgnoreFilter );
+				else showSimpleMessage( "There is no query from your input after removing empty strings." );
 			}
-		}),
+		} ),
 
-		commands.registerCommand('symbolsTree.collapseAll', async (node: SymbolNode) => {
-			await commands.executeCommand('workbench.actions.treeView.symbolsTree.collapseAll');
-			await commands.executeCommand('setContext', 'symbolsTree.collapsed', true);
-		}),
+		commands.registerCommand( 'symbolsTree.collapseAll', async ( node: SymbolNode ) => {
+			await commands.executeCommand( 'workbench.actions.treeView.symbolsTree.collapseAll' );
+			await commands.executeCommand( 'setContext', 'symbolsTree.collapsed', true );
+		} ),
 
-		commands.registerCommand('symbolsTree.expandAll', async (node: SymbolNode) => {
+		commands.registerCommand( 'symbolsTree.expandAll', async ( node: SymbolNode ) => {
 			await treeSymbolProvider.expandAll();
-			await commands.executeCommand('setContext', 'symbolsTree.collapsed', false);
-		}),
+			await commands.executeCommand( 'setContext', 'symbolsTree.collapsed', false );
+		} ),
 
-		commands.registerCommand('symbolsTree.revealSymbol', async (node: SymbolNode) => {
+		commands.registerCommand( 'symbolsTree.revealSymbol', async ( node: SymbolNode ) => {
 
-			if (!node && !symbolView.selection.length) {
-				showSimpleMessage("There are no symbols selected in the Tree View to reveal.");
+			if ( !node && !symbolView.selection.length ) {
+				showSimpleMessage( "There are no symbols selected in the Tree View to reveal." );
 				return;
 			}
 
 			const editor = window.activeTextEditor;
-			if (!editor) return;
+			if ( !editor ) return;
 
 			// if a node, reveal that
 			// if !node, get symbolView.selection, reveal first
-			if (node) {
-				editor.revealRange(node.range, TextEditorRevealType.InCenter);
-				editor.selection = new Selection(node.selectionRange.start, node.selectionRange.start);
-				await window.showTextDocument(editor.document);
+			if ( node ) {
+				editor.revealRange( node.range, TextEditorRevealType.InCenter );
+				editor.selection = new Selection( node.selectionRange.start, node.selectionRange.start );
+				await window.showTextDocument( editor.document );
 			}
-			else if (symbolView.selection.length) {   // !node, triggered by keybinding
+			else if ( symbolView.selection.length ) {   // !node, triggered by keybinding
 				let selections = [];
 
-				for (const node of symbolView.selection) {
-					selections.push(new Selection(node.selectionRange.start, node.selectionRange.start));
+				for ( const node of symbolView.selection ) {
+					selections.push( new Selection( node.selectionRange.start, node.selectionRange.start ) );
 				}
 
 				editor.selections = selections;
 				let node = symbolView.selection[0];
-				editor.revealRange(node.range, TextEditorRevealType.InCenter);
-				await window.showTextDocument(editor.document);
+				editor.revealRange( node.range, TextEditorRevealType.InCenter );
+				await window.showTextDocument( editor.document );
 			}
 			// if need the activeItem(s), see proposed: https://github.com/EhabY/vscode/blob/d23158246aaa474996f2237f735461ad47e41403/src/vscode-dts/vscode.proposed.treeViewActiveItem.d.ts#L10-L29
 			// treeView.onDidChangeActiveItem()
 			// waiting on https://github.com/microsoft/vscode/issues/185563
-		}),
+		} ),
 
-		commands.registerCommand('symbolsTree.selectSymbol', async (node: SymbolNode) => {
+		commands.registerCommand( 'symbolsTree.selectSymbol', async ( node: SymbolNode ) => {
 
-			if (!node && !symbolView.selection.length) {
-				showSimpleMessage("There are no symbols selected in the Tree View to select.");
+			if ( !node && !symbolView.selection.length ) {
+				showSimpleMessage( "There are no symbols selected in the Tree View to select." );
 				return;
 			}
 
 			const editor = window.activeTextEditor;
-			if (!editor) return;
+			if ( !editor ) return;
 
 			let nodeToReveal: SymbolNode | undefined = undefined;
-			if (node) nodeToReveal = node;
+			if ( node ) nodeToReveal = node;
 			else nodeToReveal = symbolView.selection[0];
 
 			let extendedRange;
 			let selections = [];
 			let nodes: SymbolNode[] = [];
 
-			if (node) {
-				if (symbolView.selection.includes(node)) nodes.push(...symbolView.selection);
-				else nodes.push(node);
+			if ( node ) {
+				if ( symbolView.selection.includes( node ) ) nodes.push( ...symbolView.selection );
+				else nodes.push( node );
 			}
-			else nodes.push(...symbolView.selection);
+			else nodes.push( ...symbolView.selection );
 
-			for (const node of nodes) {
-				const lastLineLength = editor.document.lineAt(node.range.end).text.length;
-				if (node.name.startsWith('return')) extendedRange = node.selectionRange;
+			for ( const node of nodes ) {
+				const lastLineLength = editor.document.lineAt( node.range.end ).text.length;
+				if ( node.name.startsWith( 'return' ) ) extendedRange = node.selectionRange;
 				else
-					extendedRange = node.range.with({
-						start: new Position(node.range.start.line, 0),
-						end: new Position(node.range.end.line, lastLineLength)
-					});
+					extendedRange = node.range.with( {
+						start: new Position( node.range.start.line, 0 ),
+						end: new Position( node.range.end.line, lastLineLength )
+					} );
 
-				selections.push(new Selection(extendedRange.start, extendedRange.end));
+				selections.push( new Selection( extendedRange.start, extendedRange.end ) );
 			}
 
 			editor.selections = selections;
-			const revealRange = new Range(nodeToReveal.range.start, nodeToReveal.range.end);
-			editor.revealRange(revealRange, TextEditorRevealType.InCenter);
+			const revealRange = new Range( nodeToReveal.range.start, nodeToReveal.range.end );
+			editor.revealRange( revealRange, TextEditorRevealType.InCenter );
 
 			// 'expand: undefined' respects the pre-existing state of the item
 			// 'expand: Number.MAX_SAFE_INTEGER'
-			await symbolView.reveal(node, {expand: undefined, focus: false, select: true});
-			await window.showTextDocument(editor.document);  // focus the document to show selections
-		}),
+			await symbolView.reveal( node, { expand: undefined, focus: false, select: true } );
+			await window.showTextDocument( editor.document );  // focus the document to show selections
+		} ),
 	);
 
-	context.subscriptions.push(window.onDidChangeActiveTextEditor(async (textEditor) => {
-		if (textEditor) {
-			_Globals.updateIsJSTS(textEditor);
-			if (symbolView.visible && !SymbolsProvider.locked) {
-				await treeSymbolProvider.debouncedRefresh('', TreeCache.UseFilterAndAllNodes);  // doesn't help if rapidly switch editors?
+	context.subscriptions.push( window.onDidChangeActiveTextEditor( async ( textEditor ) => {
+		if ( textEditor ) {
+			_Globals.updateIsJSTS( textEditor );
+			if ( symbolView.visible && !SymbolsProvider.locked ) {
+				await treeSymbolProvider.debouncedRefresh( '', TreeCache.UseFilterAndAllNodes );  // doesn't help if rapidly switch editors?
 			}
 		}
-	}));
+	} ) );
 }
 
-function removeEmptyStringsFromQuery(query: string | string[]): string | string[] | undefined {
+function removeEmptyStringsFromQuery( query: string | string[] ): string | string[] | undefined {
 
-	if (typeof query === 'string') {
-		if (!query.length) return undefined;
+	if ( typeof query === 'string' ) {
+		if ( !query.length ) return undefined;
 		else return query;
 	}
-	else if (Array.isArray(query)) {
-		return query.filter(q => q.length);
+	else if ( Array.isArray( query ) ) {
+		return query.filter( q => q.length );
 	}
 }
 
