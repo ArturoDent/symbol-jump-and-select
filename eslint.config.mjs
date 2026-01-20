@@ -2,8 +2,13 @@ import typescriptEslint from "@typescript-eslint/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
 
 export default [{
-    files: ["**/*.ts"],
-}, {
+    files: ["**/*.ts"]
+},
+{
+    // Note: there should be no other properties in this object
+    ignores: ["**/temp.js", "config/*", "dist/", "out/", "node_modules/"],
+},
+{
     plugins: {
         "@typescript-eslint": typescriptEslint,
     },
